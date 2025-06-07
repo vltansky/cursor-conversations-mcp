@@ -114,6 +114,39 @@ Add to your `.cursor/mcp.json`:
 - **No API keys required** - No data sharing with external services
 - **Full control** - You decide what data to access and when
 
+## How It Works
+
+**Summary-First Approach for Efficiency**
+
+The entire system is designed to be both powerful and context-efficient:
+
+### **Data Access Process**
+1. **Full Content Analysis**: All tools access complete conversation data including:
+   - Complete message text and code blocks
+   - File references and folder paths
+   - Conversation metadata and titles
+   - AI-generated summaries
+
+2. **Smart Result Delivery**: Different tools provide focused outputs:
+   - **`list_conversations`**: Returns conversation summaries with titles and metadata
+   - **`search_conversations`**: Searches full content but returns only summaries with relevance scores
+   - **`get_project_conversations`**: Provides project-focused summaries
+   - **Analytics tools**: Extract insights and patterns without overwhelming detail
+
+3. **Summary-First Results**: Most tools return:
+   - Conversation summaries and titles
+   - Key metadata (files, folders, message count)
+   - AI-generated summaries when available
+   - Relevant scores and analytics
+
+### **Why This Design?**
+- **Context Efficiency**: Avoids overwhelming AI assistants with full message content
+- **Performance**: Summaries are much smaller and faster to process
+- **Discoverability**: Users can quickly scan results to identify relevant conversations
+- **Deep Dive When Needed**: Use `get_conversation` for full content of specific conversations
+
+This approach lets you efficiently browse, search, and analyze your conversation history, then dive deep only into conversations that matter for your current task.
+
 ## Installation
 
 ### For Development
