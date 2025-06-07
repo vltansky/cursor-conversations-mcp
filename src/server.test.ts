@@ -31,7 +31,7 @@ describe('MCP Server', () => {
       await import('./server.js');
 
       expect(mockMcpServer).toHaveBeenCalledWith({
-        name: 'cursor-conversations-mcp',
+        name: 'cursor-chat-history-mcp',
         version: '1.0.0'
       });
     });

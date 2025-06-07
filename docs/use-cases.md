@@ -1,6 +1,6 @@
-# Cursor Conversations MCP Server - Use Cases
+# Cursor Chat History MCP - Use Cases
 
-This document provides comprehensive use case examples for the Cursor Conversations MCP Server, organized by user type, scenario, and application domain.
+This document provides comprehensive use case examples for the Cursor Chat History MCP, organized by user type, scenario, and application domain.
 
 ## 🎯 Personal Development & Learning
 
@@ -166,7 +166,7 @@ This document provides comprehensive use case examples for the Cursor Conversati
 **Technology Stack Analysis**
 ```
 "Generate reports on programming language usage across all conversations"
-"Track the evolution of our technology stack through conversation history"
+"Track the evolution of our technology stack through chat history"
 "Find conversations about technology decisions to understand selection criteria"
 ```
 
@@ -436,8 +436,8 @@ This document provides comprehensive use case examples for the Cursor Conversati
 1. **Temporal Analysis**: Compare conversation patterns across different time periods
 2. **Cross-Reference**: Combine conversation analysis with code metrics and project outcomes
 3. **Predictive Insights**: Use historical patterns to predict future challenges and opportunities
-4. **Automated Workflows**: Create scripts to regularly extract and analyze conversation data
+4. **Automated Workflows**: Create scripts to regularly extract and analyze chat data
 
 ---
 
-*This document provides a comprehensive overview of use cases for the Cursor Conversations MCP Server. Each use case can be adapted and customized based on specific needs, team structures, and project requirements.*
+*This document provides a comprehensive overview of use cases for the Cursor Chat History MCP. Each use case can be adapted and customized based on specific needs, team structures, and project requirements.*

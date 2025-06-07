@@ -1,5 +1,5 @@
 /**
- * Custom error classes for the Cursor Conversations MCP server
+ * Custom error classes for the Cursor Chat History MCP server
  */
 
 /**
@@ -175,7 +175,7 @@ export class DatabasePathNotFoundError extends FileSystemError {
 }
 
 /**
- * Error thrown when parsing conversation data fails
+ * Error thrown when parsing chat data fails
  */
 export class ConversationParseError extends MCPError {
   public readonly conversationId?: string;

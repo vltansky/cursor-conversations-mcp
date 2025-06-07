@@ -1,4 +1,4 @@
-// Type definitions for Cursor conversation data
+// Type definitions for Cursor chat data
 // Supports both legacy and modern conversation formats
 
 export interface CursorDiskKV {

@@ -21,14 +21,14 @@ import { z } from 'zod';
 import { formatResponse } from './utils/formatter.js';
 
 const server = new McpServer({
-  name: 'cursor-conversations-mcp',
+  name: 'cursor-chat-history-mcp',
   version: '0.1.0',
 });
 
 // Simplified: List conversations with essential filters only
 server.tool(
   'list_conversations',
-  'Lists Cursor conversations with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
+  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     limit: z.number().min(1).max(100).optional().default(10),
     minLength: z.number().min(0).optional().default(100),
@@ -116,7 +116,7 @@ server.tool(
 // Enhanced: Search conversations with multi-keyword and LIKE pattern support
 server.tool(
   'search_conversations',
-  'Searches through Cursor conversation content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
+  'Searches through Cursor chat content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     // Simple query (backward compatible)
     query: z.string().optional().describe('Basic text search - use for simple searches like "react hooks" or "error handling"'),
@@ -233,7 +233,7 @@ server.tool(
 // Analytics: Get comprehensive conversation analytics
 server.tool(
   'get_conversation_analytics',
-  'Get comprehensive analytics and statistics about Cursor conversations including usage patterns, file activity, programming language distribution, and temporal trends. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about conversation data.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
+  'Get comprehensive analytics and statistics about Cursor chats including usage patterns, file activity, programming language distribution, and temporal trends. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about chat data.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     scope: z.enum(['all', 'recent', 'project']).optional().default('all'),
     projectPath: z.string().optional(),
@@ -340,7 +340,7 @@ server.tool(
 // Export: Export conversation data in various formats
 server.tool(
   'export_conversation_data',
-  'Export conversation data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup conversation data in structured formats.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
+  'Export chat data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup chat data in structured formats.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     conversationIds: z.array(z.string()).optional(),
     format: z.enum(['json', 'csv', 'graph']).optional().default('json'),

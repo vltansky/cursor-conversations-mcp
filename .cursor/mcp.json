@@ -1,9 +1,9 @@
 {
     "mcpServers": {
-      "cursor-conversations-mcp": {
+      "cursor-chat-history-mcp": {
           "command": "node",
           "args": [
-              "/Users/vladta/Projects/cursor-conversations-mcp/dist/server.js"
+              "/Users/vladta/Projects/cursor-chat-history-mcp/dist/server.js"
           ]
       },
         "taskmaster-ai": {

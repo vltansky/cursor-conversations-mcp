@@ -1,25 +1,25 @@
-# Cursor Conversations MCP Server
+# Cursor Chat History MCP
 
-**Give AI assistants access to your Cursor conversation history.**
+**Give AI assistants access to your Cursor chat history.**
 
-A Model Context Protocol (MCP) server that allows Cursor, Claude, and other AI assistants to read and analyze your Cursor conversation data. This enables personalized coding assistance based on your actual development patterns and history.
+A Model Context Protocol (MCP) server that allows Cursor, Claude, and other AI assistants to read and analyze your Cursor chat data. This enables personalized coding assistance based on your actual development patterns and history.
 
 ## What This Enables
 
 Ask your AI assistant to:
 
-- Analyze your conversation history to understand your coding patterns and usage statistics
+- Analyze your chat history to understand your coding patterns and usage statistics
 - Generate project-specific rules based on your actual development discussions
 - Extract insights from past problem-solving sessions and find related conversations
 - Create documentation based on real conversations about your code
-- Export conversation data for external analysis and visualization
+- Export chat data for external analysis and visualization
 - Find and apply solutions you've already worked through
 
 ## Key Benefits
 
 **Generate Personalized Rules**: Create coding standards based on your actual development patterns, not generic best practices.
 
-**Learn from Your History**: Extract insights from past conversations to improve future development.
+**Learn from Your History**: Extract insights from past chats to improve future development.
 
 **Context-Aware Assistance**: Get help that's informed by your specific projects and coding style.
 
@@ -33,9 +33,9 @@ Add to your `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "cursor-conversations": {
+    "cursor-chat-history": {
       "command": "npx",
-      "args": ["-y", "--package=cursor-conversations-mcp", "cursor-conversations-mcp"]
+      "args": ["-y", "--package=cursor-chat-history-mcp", "cursor-chat-history-mcp"]
     }
   }
 }
@@ -44,7 +44,7 @@ Add to your `.cursor/mcp.json`:
 ### 2. Start Using
 ```
 "Analyze my React conversations and create component guidelines"
-"Find debugging patterns in my conversation history"
+"Find debugging patterns in my chat history"
 "Generate TypeScript coding standards from my actual usage"
 "What are the main themes in my recent coding discussions?"
 ```
@@ -63,7 +63,7 @@ Add to your `.cursor/mcp.json`:
 - **`get_conversation_analytics`** - Comprehensive analytics including usage patterns, file activity, programming language distribution, and temporal trends
 - **`find_related_conversations`** - Find conversations related by shared files, folders, languages, size, or temporal proximity
 - **`extract_conversation_elements`** - Extract files, code blocks, languages, metadata, and conversation structure with flexible grouping
-- **`export_conversation_data`** - Export conversation data in JSON, CSV, or Graph formats for external analysis and visualization
+- **`export_conversation_data`** - Export chat data in JSON, CSV, or Graph formats for external analysis and visualization
 
 ## Common Use Cases
 
@@ -109,7 +109,7 @@ Add to your `.cursor/mcp.json`:
 
 ## Privacy & Security
 
-- **Runs locally** - Your conversation data never leaves your machine
+- **Runs locally** - Your chat data never leaves your machine
 - **No external services** - Direct access to your local Cursor database
 - **No API keys required** - No data sharing with external services
 - **Full control** - You decide what data to access and when
@@ -121,7 +121,7 @@ Add to your `.cursor/mcp.json`:
 The entire system is designed to be both powerful and context-efficient:
 
 ### **Data Access Process**
-1. **Full Content Analysis**: All tools access complete conversation data including:
+1. **Full Content Analysis**: All tools access complete chat data including:
    - Complete message text and code blocks
    - File references and folder paths
    - Conversation metadata and titles
@@ -145,14 +145,14 @@ The entire system is designed to be both powerful and context-efficient:
 - **Discoverability**: Users can quickly scan results to identify relevant conversations
 - **Deep Dive When Needed**: Use `get_conversation` for full content of specific conversations
 
-This approach lets you efficiently browse, search, and analyze your conversation history, then dive deep only into conversations that matter for your current task.
+This approach lets you efficiently browse, search, and analyze your chat history, then dive deep only into conversations that matter for your current task.
 
 ## Installation
 
 ### For Development
 ```bash
-git clone https://github.com/vltansky/cursor-conversations-mcp
-cd cursor-conversations-mcp
+git clone https://github.com/vltansky/cursor-chat-history-mcp
+cd cursor-chat-history-mcp
 yarn install
 yarn build
 ```
@@ -161,6 +161,18 @@ yarn build
 The npx configuration above handles installation automatically.
 
 ## Tool Reference
+
+### Output Formats
+
+All tools support multiple output formats via the `outputMode` parameter:
+
+- **`markdown` (default)** - Human-readable format with headers, bullet points, and proper formatting. **Strongly recommended for AI-human collaboration** as it's much easier to read and understand.
+- **`json`** - Raw JSON data. Use only when you need to programmatically process the results or integrate with other tools.
+- **`compact-json`** - Minified JSON without formatting. Most compact but hardest to read.
+- **`table`** - Tabular format for structured data comparison.
+- **`compact`** - Condensed text format for minimal context usage.
+
+**Recommendation**: Always use `markdown` (the default) unless you specifically need JSON for programmatic processing. The markdown format is designed to be context-efficient while remaining highly readable for both humans and AI assistants.
 
 ### Core Tools
 
@@ -229,7 +241,7 @@ Auto-detected locations:
 ## Technical Notes
 
 - Supports both legacy and modern Cursor conversation formats
-- Uses SQLite to access Cursor's conversation database
+- Uses SQLite to access Cursor's chat database
 - Close Cursor before running to avoid database lock issues
 - Conversations filtered by size (>1000 bytes) to exclude empty ones
 - Uses ROWID for chronological ordering (UUIDs are not chronological)
