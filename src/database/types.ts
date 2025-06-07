@@ -38,6 +38,15 @@ export interface ModernCursorConversation {
       summary: string;                 // The actual AI-generated summary text
     };
   };
+  context?: {                          // Context information including file selections
+    fileSelections?: Array<{
+      uri: {
+        fsPath: string;                // Full file system path
+        path: string;                  // Path (usually same as fsPath)
+      };
+    }>;
+    // ... other context fields may exist
+  };
 }
 
 // Union type for both conversation formats
@@ -52,6 +61,15 @@ export interface ConversationMessage {
   relevantFiles: string[];
   text: string;                        // Message content
   timestamp?: string;
+  context?: {                          // Context information including file selections
+    fileSelections?: Array<{
+      uri: {
+        fsPath: string;                // Full file system path
+        path: string;                  // Path (usually same as fsPath)
+      };
+    }>;
+    // ... other context fields may exist
+  };
 }
 
 // Header structure for modern format
@@ -69,6 +87,15 @@ export interface BubbleMessage {
   suggestedCodeBlocks?: CodeBlock[];
   relevantFiles?: string[];
   timestamp?: string;
+  context?: {                          // Context information including file selections
+    fileSelections?: Array<{
+      uri: {
+        fsPath: string;                // Full file system path
+        path: string;                  // Path (usually same as fsPath)
+      };
+    }>;
+    // ... other context fields may exist
+  };
 }
 
 // Code block structure

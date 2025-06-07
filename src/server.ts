@@ -3,17 +3,25 @@
 /*
  * WORKFLOW GUIDANCE FOR AI ASSISTANTS:
  *
- * 1. DISCOVERY: Use list_conversations or search_conversations to find relevant conversations
- * 2. ANALYTICS: Use get_conversation_analytics with ["files", "languages"] breakdowns
+
+* **ALWAYS START WITH PROJECT FILTERING** for project-specific analysis:
+ * 1. DISCOVERY: Use list_conversations with projectPath parameter to find project-specific conversations
+ * 2. ANALYTICS: Use get_conversation_analytics with projectPath and ["files", "languages"] breakdowns
  *    - Files/languages breakdowns contain conversation IDs in their arrays!
  * 3. DEEP DIVE: Use get_conversation with specific conversation IDs from step 1 or 2
  * 4. ANALYSIS: Use analytics tools (find_related, extract_elements) for insights
  * 5. DATE FILTERING: Use get_system_info first when applying date filters to search_conversations
  *
- * COMMON PATTERN:
- * - get_conversation_analytics(includeBreakdowns: ["files", "languages"])
+ * RECOMMENDED PATTERN FOR PROJECT ANALYSIS:
+ * - list_conversations(projectPath: "project-name", startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD")
+ * - get_conversation_analytics(projectPath: "project-name", includeBreakdowns: ["files", "languages"])
  * - Extract conversation IDs from files/languages.conversations arrays
  * - get_conversation(conversationId: "id-from-breakdown") for each relevant conversation
+ *
+ * PROJECT PATH EXAMPLES:
+ * - "my-app" (project name)
+ * - "/Users/name/Projects/my-app" (full path)
+ * - "editor-elements" (project name from path like /Users/name/Projects/editor-elements)
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -42,13 +50,13 @@ const server = new McpServer({
 
 server.tool(
   'list_conversations',
-  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Returns conversation IDs that you can use with get_conversation tool. WORKFLOW TIP: Use this for browsing/discovery, then call get_conversation with specific IDs from the results. Includes AI-generated summaries by default to help identify relevant discussions efficiently. When projectPath is specified, adds relevance scoring for project-specific filtering. Supports date range filtering (YYYY-MM-DD format - note: timestamps may be unreliable).',
+  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. **HIGHLY RECOMMENDED: Use projectPath parameter to filter conversations by specific project/codebase** - this dramatically improves relevance by finding conversations that actually worked on files in that project. Returns conversation IDs for use with get_conversation tool. WORKFLOW TIP: Start with projectPath filtering for project-specific analysis, then call get_conversation with specific IDs from results. Includes AI-generated summaries by default. Supports date range filtering (YYYY-MM-DD format).',
   {
     limit: z.number().min(1).max(100).optional().default(10).describe('Maximum number of conversations to return (1-100)'),
     minLength: z.number().min(0).optional().default(100).describe('Minimum conversation length in characters to include'),
     hasCodeBlocks: z.boolean().optional().describe('Filter to conversations that contain code blocks'),
     keywords: z.array(z.string()).optional().describe('Filter conversations containing any of these exact keywords (literal text matching)'),
-    projectPath: z.string().optional().describe('Filter conversations related to this project path'),
+    projectPath: z.string().optional().describe('**RECOMMENDED** Filter conversations by project/codebase name (e.g., "my-app") or full path (e.g., "/Users/name/Projects/my-app"). This finds conversations that actually worked on files in that project, dramatically improving relevance for project-specific analysis.'),
     filePattern: z.string().optional().describe('Filter conversations mentioning files matching this pattern (e.g., "*.tsx")'),
     relevantFiles: z.array(z.string()).optional().describe('Filter conversations that reference any of these specific files'),
     startDate: z.string().optional().describe('Start date for filtering (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
@@ -169,7 +177,7 @@ server.tool(
 
 server.tool(
   'search_conversations',
-  'Searches through Cursor chat content using exact text matching (NOT semantic search) to find relevant discussions. Returns conversation summaries with IDs - ALWAYS follow up with get_conversation for specific conversations of interest. WORKFLOW TIP: This tool gives you conversation IDs in the results - use them directly with get_conversation to examine full content.\n\nSearch methods (all use exact/literal text matching):\n1. Simple text matching: Use query parameter for literal string matching (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for exact matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n4. Date range: Filter by message timestamps (YYYY-MM-DD format - note: timestamps may be unreliable)\n\nIMPORTANT: When using date filters, call get_system_info first to know today\'s date, as AI assistants may not have access to current date information.\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.',
+  'Searches through Cursor chat content using exact text matching (NOT semantic search) to find relevant discussions. **TIP: Combine with projectPath parameter for project-specific searches** - this finds conversations that both match your search terms AND worked on files in that project. Returns conversation summaries with IDs - ALWAYS follow up with get_conversation for specific conversations of interest.\n\nSearch methods (all use exact/literal text matching):\n1. Simple text matching: Use query parameter for literal string matching (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for exact matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n4. Date range: Filter by message timestamps (YYYY-MM-DD format)\n5. **Project filtering: Use searchType="project" for project-focused searches**\n\nIMPORTANT: When using date filters, call get_system_info first to know today\'s date.\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator, searchType="project" for project-specific searches.',
   {
     query: z.string().optional().describe('Exact text matching - searches for literal string occurrences in conversation content (e.g., "react hooks" finds conversations containing those exact words)'),
     keywords: z.array(z.string().min(1)).optional().describe('Array of keywords for exact text matching - use with keywordOperator to find conversations with specific combinations'),
@@ -177,7 +185,7 @@ server.tool(
     likePattern: z.string().optional().describe('SQL LIKE pattern for advanced searches - use % for any characters, _ for single character. Examples: "%useState(%" for function calls, "%.tsx%" for file types'),
     startDate: z.string().optional().describe('Start date for search (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
     endDate: z.string().optional().describe('End date for search (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
-    searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
+    searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types. Use "project" for project-specific searches that leverage file path context.'),
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
     includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results'),
     outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
@@ -226,10 +234,10 @@ server.tool(
 
 server.tool(
   'get_conversation_analytics',
-  'Get comprehensive analytics and statistics about Cursor chats including usage patterns, file activity, programming language distribution, and temporal trends. WORKFLOW TIP: Always include "files" and "languages" in breakdowns - these contain conversation IDs in their arrays that you can immediately use with get_conversation tool. For example, files breakdown shows which conversations mention specific files. Use includeConversationDetails=true when you need the full conversation ID list and basic metadata for follow-up analysis. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about chat data.',
+  'Get comprehensive analytics and statistics about Cursor chats including usage patterns, file activity, programming language distribution, and temporal trends. **BEST PRACTICE: Use projectPath parameter for project-specific analytics** - this analyzes only conversations that worked on files in that project, providing much more relevant insights for understanding coding patterns, file usage, and development activity within a specific codebase. WORKFLOW TIP: Always include "files" and "languages" in breakdowns - these contain conversation IDs in their arrays that you can immediately use with get_conversation tool. Use includeConversationDetails=true when you need the full conversation ID list and basic metadata for follow-up analysis.',
   {
-    scope: z.enum(['all', 'recent', 'project']).optional().default('all').describe('Analysis scope: all conversations, recent only, or project-specific'),
-    projectPath: z.string().optional().describe('Project path for project-scoped analysis'),
+    scope: z.enum(['all', 'recent', 'project']).optional().default('all').describe('Analysis scope: all conversations, recent only, or project-specific. Use "project" with projectPath for focused project analysis.'),
+    projectPath: z.string().optional().describe('**HIGHLY RECOMMENDED** Project/codebase name (e.g., "my-app") or full path for project-scoped analysis. When provided, analyzes only conversations that worked on files in that project, giving much more relevant insights about coding patterns and development activity.'),
     recentDays: z.number().min(1).max(365).optional().default(30).describe('Number of recent days to analyze (1-365)'),
     includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']).describe('Types of breakdowns to include in the analysis. IMPORTANT: "files" and "languages" breakdowns contain conversation IDs in their arrays - use these for follow-up analysis!'),
     includeConversationDetails: z.boolean().optional().default(false).describe('Include full conversation ID list and basic metadata (increases response size significantly)'),
@@ -331,7 +339,7 @@ server.tool(
 
 server.tool(
   'export_conversation_data',
-  'Export chat data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup chat data in structured formats.',
+  'Export chat data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. **TIP: Use filters.projectPath to export only project-specific conversations** for focused analysis of a particular codebase. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup chat data in structured formats.',
   {
     conversationIds: z.array(z.string()).optional().describe('Specific conversation IDs to export (if not provided, exports all conversations)'),
     format: z.enum(['json', 'csv', 'graph']).optional().default('json').describe('Export format: JSON for structured data, CSV for spreadsheets, Graph for network analysis'),
@@ -341,7 +349,7 @@ server.tool(
     filters: z.object({
       minSize: z.number().optional().describe('Minimum conversation size to include'),
       hasCodeBlocks: z.boolean().optional().describe('Only include conversations with code blocks'),
-      projectPath: z.string().optional().describe('Only include conversations related to this project path')
+              projectPath: z.string().optional().describe('**RECOMMENDED** Only include conversations related to this project/codebase name or path. Dramatically improves relevance by filtering to conversations that actually worked on files in that project.')
     }).optional().describe('Filters to apply when selecting conversations to export'),
     outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },

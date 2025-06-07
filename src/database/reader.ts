@@ -112,9 +112,22 @@ export class CursorDatabaseReader {
       }
 
       if (filters?.projectPath) {
-        whereConditions.push("(value LIKE ? OR value LIKE ?)");
-        params.push(`%"attachedFoldersNew":[%"${filters.projectPath}%`);
-        params.push(`%"relevantFiles":[%"${filters.projectPath}%`);
+        // Check if it's a full path or just a project name
+        const isFullPath = filters.projectPath.startsWith('/');
+
+        if (isFullPath) {
+          // For full paths, search in all three places
+          whereConditions.push("(value LIKE ? OR value LIKE ? OR value LIKE ?)");
+          params.push(`%"attachedFoldersNew":[%"${filters.projectPath}%`);
+          params.push(`%"relevantFiles":[%"${filters.projectPath}%`);
+          params.push(`%"fsPath":"${filters.projectPath}%`);
+        } else {
+          // For project names, we need to search for the project name in paths
+          whereConditions.push("(value LIKE ? OR value LIKE ? OR value LIKE ?)");
+          params.push(`%"attachedFoldersNew":[%"${filters.projectPath}%`);
+          params.push(`%"relevantFiles":[%"${filters.projectPath}%`);
+          params.push(`%"fsPath":"%/${filters.projectPath}/%`);
+        }
       }
 
       if (filters?.filePattern) {
@@ -197,31 +210,52 @@ export class CursorDatabaseReader {
 
     if (fuzzyMatch) {
       sql += ` AND (
-        value LIKE '%"attachedFoldersNew":%' AND (
+        (value LIKE '%"attachedFoldersNew":%' AND (
           value LIKE ? OR
           value LIKE ? OR
           value LIKE ?
-        )
+        )) OR
+        (value LIKE '%"context":%' AND value LIKE '%"fsPath":%' AND (
+          value LIKE ? OR
+          value LIKE ? OR
+          value LIKE ?
+        ))
       )`;
 
       const projectLower = projectPath.toLowerCase();
       const escapedProjectPath = projectPath.replace(/"/g, '\\"');
       const escapedProjectLower = projectLower.replace(/"/g, '\\"');
 
+      // For attachedFoldersNew
       params.push(`%"${escapedProjectPath}"%`);
       params.push(`%"${escapedProjectLower}"%`);
       params.push(`%${escapedProjectPath}%`);
+
+      // For context.fileSelections.uri.fsPath
+      params.push(`%"fsPath":"%/${escapedProjectPath}/%`);
+      params.push(`%"fsPath":"%/${escapedProjectLower}/%`);
+      params.push(`%"fsPath":"%${escapedProjectPath}%`);
     } else {
       sql += ` AND (
-        value LIKE '%"attachedFoldersNew":%' AND (
+        (value LIKE '%"attachedFoldersNew":%' AND (
           value LIKE ? OR
           value LIKE ?
-        )
+        )) OR
+        (value LIKE '%"context":%' AND value LIKE '%"fsPath":%' AND (
+          value LIKE ? OR
+          value LIKE ?
+        ))
       )`;
 
       const escapedProjectPath = projectPath.replace(/"/g, '\\"');
+
+      // For attachedFoldersNew
       params.push(`%"${escapedProjectPath}"%`);
       params.push(`%"${escapedProjectPath}/%"`);
+
+      // For context.fileSelections.uri.fsPath
+      params.push(`%"fsPath":"%/${escapedProjectPath}/%`);
+      params.push(`%"fsPath":"%/${escapedProjectPath}/%`);
     }
 
     if (options?.filePattern) {
@@ -277,6 +311,97 @@ export class CursorDatabaseReader {
   }
 
   /**
+   * Extract project paths from conversation context field
+   */
+  private extractProjectPathsFromContext(conversation: any): string[] {
+    const projectPaths = new Set<string>();
+
+    // Check top-level context
+    if (conversation.context?.fileSelections) {
+      for (const selection of conversation.context.fileSelections) {
+        const fsPath = selection.uri?.fsPath || selection.uri?.path;
+        if (fsPath) {
+          const projectName = this.extractProjectName(fsPath);
+          if (projectName) {
+            projectPaths.add(projectName);
+            projectPaths.add(fsPath); // Also add full path for exact matching
+          }
+        }
+      }
+    }
+
+    // Check message-level context for legacy format
+    if (conversation.conversation && Array.isArray(conversation.conversation)) {
+      for (const message of conversation.conversation) {
+        if (message.context?.fileSelections) {
+          for (const selection of message.context.fileSelections) {
+            const fsPath = selection.uri?.fsPath || selection.uri?.path;
+            if (fsPath) {
+              const projectName = this.extractProjectName(fsPath);
+              if (projectName) {
+                projectPaths.add(projectName);
+                projectPaths.add(fsPath); // Also add full path for exact matching
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(projectPaths);
+  }
+
+    /**
+   * Extract project name from file path
+   */
+  private extractProjectName(filePath: string): string {
+    // Extract project name from path like "/Users/vladta/Projects/editor-elements/file.ts"
+    const parts = filePath.split('/').filter(Boolean); // Remove empty parts
+
+    // Look for "Projects" folder (case-insensitive)
+    const projectsIndex = parts.findIndex(part => part.toLowerCase() === 'projects');
+    if (projectsIndex >= 0 && projectsIndex < parts.length - 1) {
+      return parts[projectsIndex + 1];
+    }
+
+    // Fallback: try to find common workspace patterns
+    const workspacePatterns = ['workspace', 'repos', 'code', 'dev', 'development', 'src', 'work'];
+    for (const pattern of workspacePatterns) {
+      const patternIndex = parts.findIndex(part => part.toLowerCase() === pattern);
+      if (patternIndex >= 0 && patternIndex < parts.length - 1) {
+        return parts[patternIndex + 1];
+      }
+    }
+
+    // For paths like /Users/username/project-name/..., take the project name
+    // Skip common user directory patterns
+    const skipPatterns = ['users', 'home', 'documents', 'desktop', 'downloads'];
+    let candidateIndex = -1;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i].toLowerCase();
+      if (!skipPatterns.includes(part) && part.length > 1) {
+        // This could be a project name if it's not a common system directory
+        candidateIndex = i;
+        break;
+      }
+    }
+
+    if (candidateIndex >= 0 && candidateIndex < parts.length - 1) {
+      // Take the next part after the candidate (likely the project name)
+      return parts[candidateIndex + 1];
+    }
+
+    // Last resort: if we have at least 3 parts, take the one that's most likely a project
+    if (parts.length >= 3) {
+      // Skip the first two parts (usually /Users/username) and take the third
+      return parts[2] || '';
+    }
+
+    return '';
+  }
+
+  /**
    * Calculate relevance score for project-based filtering
    */
   private calculateProjectRelevanceScore(
@@ -288,6 +413,16 @@ export class CursorDatabaseReader {
     }
   ): number {
     let score = 0;
+
+    // NEW: Check context field for project paths (highest priority)
+    const contextProjectPaths = this.extractProjectPathsFromContext(conversation);
+    for (const contextPath of contextProjectPaths) {
+      if (contextPath === projectPath) {
+        score += 15; // Highest score for exact context match
+      } else if (contextPath.includes(projectPath) || projectPath.includes(contextPath)) {
+        score += 10; // High score for partial context match
+      }
+    }
 
     // Check attachedFoldersNew for exact matches and path prefixes
     if (conversation.attachedFoldersNew && Array.isArray(conversation.attachedFoldersNew)) {
