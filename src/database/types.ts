@@ -221,6 +221,7 @@ export interface ConversationAnalytics {
       conversationCount: number;
       messageCount: number;
       averageSize: number;
+      conversationIds: string[];
     }>;
     size?: {
       distribution: number[];
@@ -234,6 +235,16 @@ export interface ConversationAnalytics {
     recentDays?: number;
     totalScanned: number;
   };
+  // Include conversation IDs for follow-up analysis
+  conversationIds: string[];
+  // Include basic conversation info for immediate access
+  conversations: Array<{
+    composerId: string;
+    messageCount: number;
+    size: number;
+    files: string[];
+    hasCodeBlocks: boolean;
+  }>;
 }
 
 export interface RelatedConversationsResult {

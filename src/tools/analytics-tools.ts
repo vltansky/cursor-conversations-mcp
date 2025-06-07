@@ -23,7 +23,8 @@ export const getConversationAnalyticsSchema = z.object({
   scope: z.enum(['all', 'recent', 'project']).optional().default('all'),
   projectPath: z.string().optional(),
   recentDays: z.number().min(1).max(365).optional().default(30),
-  includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages'])
+  includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']),
+  includeConversationDetails: z.boolean().optional().default(false)
 });
 
 export const findRelatedConversationsSchema = z.object({
@@ -104,7 +105,16 @@ export async function getConversationAnalytics(
         projectPath: input.projectPath,
         recentDays: input.scope === 'recent' ? input.recentDays : undefined,
         totalScanned: filteredIds.length
-      }
+      },
+      // Only include conversation details when requested (to control response size)
+      conversationIds: input.includeConversationDetails ? filteredIds : [],
+      conversations: input.includeConversationDetails ? summaries.map(s => ({
+        composerId: s.composerId,
+        messageCount: s.messageCount,
+        size: s.conversationSize,
+        files: s.relevantFiles.slice(0, 2), // Top 2 files only
+        hasCodeBlocks: s.codeBlockCount > 0
+      })) : []
     };
 
   } catch (error) {

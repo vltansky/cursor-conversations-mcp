@@ -681,6 +681,8 @@ export class CursorDatabaseReader {
     keywords?: string[];
     keywordOperator?: 'AND' | 'OR';
     likePattern?: string;
+    startDate?: string;
+    endDate?: string;
     includeCode?: boolean;
     contextLines?: number;
     maxResults?: number;
@@ -881,6 +883,12 @@ export class CursorDatabaseReader {
       } catch (error) {
         console.error(`Failed to parse conversation ${composerId} during enhanced search:`, error);
       }
+    }
+
+    // Apply date filtering if specified (post-query filtering due to unreliable timestamps)
+    if (options.startDate || options.endDate) {
+      const filteredResults = await this.filterResultsByDateRange(results, options.startDate, options.endDate);
+      return filteredResults;
     }
 
     return results;
@@ -1613,5 +1621,74 @@ export class CursorDatabaseReader {
     }
 
     return text.substring(0, 200) + '...';
+  }
+
+  /**
+   * Filter results by date range
+   */
+  private async filterResultsByDateRange(results: ConversationSearchResult[], startDate?: string, endDate?: string): Promise<ConversationSearchResult[]> {
+    const filteredResults: ConversationSearchResult[] = [];
+
+    for (const result of results) {
+      const conversation = await this.getConversationById(result.composerId);
+      if (!conversation) continue;
+
+      const conversationFormat = isLegacyConversation(conversation) ? 'legacy' : 'modern';
+      const filteredMatches: SearchMatch[] = [];
+
+      // Check each match for date filtering
+      for (const match of result.matches) {
+        let messageHasValidDate = false;
+
+        if (conversationFormat === 'legacy') {
+          const legacyConv = conversation as LegacyCursorConversation;
+          if (match.messageIndex !== undefined && legacyConv.conversation[match.messageIndex]) {
+            const message = legacyConv.conversation[match.messageIndex];
+            if (message.timestamp) {
+              const messageDate = new Date(message.timestamp).toISOString().split('T')[0];
+              if ((!startDate || messageDate >= startDate) && (!endDate || messageDate <= endDate)) {
+                messageHasValidDate = true;
+              }
+            } else {
+              // If no timestamp, include the message (can't filter)
+              messageHasValidDate = true;
+            }
+          }
+        } else if (conversationFormat === 'modern' && match.bubbleId) {
+          try {
+            const bubbleMessage = await this.getBubbleMessage(result.composerId, match.bubbleId);
+            if (bubbleMessage && bubbleMessage.timestamp) {
+              const messageDate = new Date(bubbleMessage.timestamp).toISOString().split('T')[0];
+              if ((!startDate || messageDate >= startDate) && (!endDate || messageDate <= endDate)) {
+                messageHasValidDate = true;
+              }
+            } else {
+              // If no timestamp, include the message (can't filter)
+              messageHasValidDate = true;
+            }
+          } catch (error) {
+            // If error resolving bubble, include the message
+            messageHasValidDate = true;
+          }
+        } else {
+          // No timestamp available, include the message
+          messageHasValidDate = true;
+        }
+
+        if (messageHasValidDate) {
+          filteredMatches.push(match);
+        }
+      }
+
+      // Only include the result if it has valid matches after date filtering
+      if (filteredMatches.length > 0) {
+        filteredResults.push({
+          ...result,
+          matches: filteredMatches
+        });
+      }
+    }
+
+    return filteredResults;
   }
 }

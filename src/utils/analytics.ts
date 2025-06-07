@@ -34,6 +34,7 @@ export interface TemporalBreakdown {
   conversationCount: number;
   messageCount: number;
   averageSize: number;
+  conversationIds: string[];
 }
 
 export interface SizeDistribution {
@@ -176,7 +177,8 @@ export function calculateTemporalBreakdown(
       period: `Period ${i + 1}`,
       conversationCount: binSummaries.length,
       messageCount: binSummaries.reduce((sum, s) => sum + s.messageCount, 0),
-      averageSize: Math.round(averageSize)
+      averageSize: Math.round(averageSize),
+      conversationIds: binIds
     });
   }
 

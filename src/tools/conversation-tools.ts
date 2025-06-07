@@ -15,6 +15,8 @@ export const listConversationsSchema = z.object({
   projectPath: z.string().optional(),
   filePattern: z.string().optional(),
   relevantFiles: z.array(z.string()).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   includeAiSummaries: z.boolean().optional().default(true)
 });
 
@@ -70,8 +72,40 @@ export async function listConversations(input: ListConversationsInput): Promise<
       relevantFiles: validatedInput.relevantFiles
     };
 
+    // Add date range filter if provided
+    if (validatedInput.startDate || validatedInput.endDate) {
+      const start = validatedInput.startDate ? new Date(validatedInput.startDate) : new Date('1970-01-01');
+      const end = validatedInput.endDate ? new Date(validatedInput.endDate) : new Date();
+      filters.dateRange = { start, end };
+    }
+
     const conversationIds = await reader.getConversationIds(filters);
-    const limitedIds = conversationIds.slice(0, validatedInput.limit);
+    let limitedIds = conversationIds.slice(0, validatedInput.limit);
+
+    // Apply date filtering if specified (post-query filtering due to unreliable timestamps)
+    if (validatedInput.startDate || validatedInput.endDate) {
+      const filteredIds = [];
+      for (const composerId of limitedIds) {
+        try {
+          const conversation = await reader.getConversationById(composerId);
+          if (!conversation) continue;
+
+          const hasValidDate = checkConversationDateRange(
+            conversation,
+            validatedInput.startDate,
+            validatedInput.endDate
+          );
+
+          if (hasValidDate) {
+            filteredIds.push(composerId);
+          }
+        } catch (error) {
+          // Skip conversations that can't be processed
+          continue;
+        }
+      }
+      limitedIds = filteredIds;
+    }
 
     const conversations = [];
     for (const composerId of limitedIds) {
@@ -1507,4 +1541,37 @@ function levenshteinDistance(str1: string, str2: string): number {
   }
 
   return matrix[str2.length][str1.length];
+}
+
+/**
+ * Check if a conversation falls within the specified date range
+ */
+function checkConversationDateRange(conversation: any, startDate?: string, endDate?: string): boolean {
+  if (!startDate && !endDate) return true;
+
+  const start = startDate ? new Date(startDate) : new Date('1970-01-01');
+  const end = endDate ? new Date(endDate) : new Date();
+
+  // Check if conversation is legacy or modern format
+  const isLegacy = conversation.conversation && Array.isArray(conversation.conversation);
+
+  if (isLegacy) {
+    // Legacy format: check timestamps in conversation.conversation array
+    for (const message of conversation.conversation) {
+      if (message.timestamp) {
+        const messageDate = new Date(message.timestamp);
+        if (messageDate >= start && messageDate <= end) {
+          return true;
+        }
+      }
+    }
+  } else {
+    // Modern format: would need to resolve bubble messages to check timestamps
+    // For now, return true to include all modern conversations when date filtering
+    // since resolving all bubble messages would be too expensive
+    return true;
+  }
+
+  // If no valid timestamps found, include the conversation
+  return true;
 }

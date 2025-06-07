@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 
+/*
+ * WORKFLOW GUIDANCE FOR AI ASSISTANTS:
+ *
+ * 1. DISCOVERY: Use list_conversations or search_conversations to find relevant conversations
+ * 2. ANALYTICS: Use get_conversation_analytics with ["files", "languages"] breakdowns
+ *    - Files/languages breakdowns contain conversation IDs in their arrays!
+ * 3. DEEP DIVE: Use get_conversation with specific conversation IDs from step 1 or 2
+ * 4. ANALYSIS: Use analytics tools (find_related, extract_elements) for insights
+ * 5. DATE FILTERING: Use get_system_info first when applying date filters to search_conversations
+ *
+ * COMMON PATTERN:
+ * - get_conversation_analytics(includeBreakdowns: ["files", "languages"])
+ * - Extract conversation IDs from files/languages.conversations arrays
+ * - get_conversation(conversationId: "id-from-breakdown") for each relevant conversation
+ */
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -24,18 +40,19 @@ const server = new McpServer({
   version: '0.1.0',
 });
 
-// Enhanced: List conversations with project relevance scoring
 server.tool(
   'list_conversations',
-  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. When projectPath is specified, adds relevance scoring for project-specific filtering. Use this to browse and discover conversations before retrieving full content with get_conversation.',
+  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Returns conversation IDs that you can use with get_conversation tool. WORKFLOW TIP: Use this for browsing/discovery, then call get_conversation with specific IDs from the results. Includes AI-generated summaries by default to help identify relevant discussions efficiently. When projectPath is specified, adds relevance scoring for project-specific filtering. Supports date range filtering (YYYY-MM-DD format - note: timestamps may be unreliable).',
   {
     limit: z.number().min(1).max(100).optional().default(10).describe('Maximum number of conversations to return (1-100)'),
     minLength: z.number().min(0).optional().default(100).describe('Minimum conversation length in characters to include'),
     hasCodeBlocks: z.boolean().optional().describe('Filter to conversations that contain code blocks'),
-    keywords: z.array(z.string()).optional().describe('Filter conversations containing any of these keywords'),
+    keywords: z.array(z.string()).optional().describe('Filter conversations containing any of these exact keywords (literal text matching)'),
     projectPath: z.string().optional().describe('Filter conversations related to this project path'),
     filePattern: z.string().optional().describe('Filter conversations mentioning files matching this pattern (e.g., "*.tsx")'),
     relevantFiles: z.array(z.string()).optional().describe('Filter conversations that reference any of these specific files'),
+    startDate: z.string().optional().describe('Start date for filtering (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
+    endDate: z.string().optional().describe('End date for filtering (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
     includeEmpty: z.boolean().optional().default(false).describe('Include conversations with no messages'),
     includeAiSummaries: z.boolean().optional().default(true).describe('Include AI-generated conversation summaries'),
     includeRelevanceScore: z.boolean().optional().default(false).describe('Include relevance scores when filtering by projectPath'),
@@ -43,7 +60,6 @@ server.tool(
   },
   async (input) => {
     try {
-      // If projectPath is specified and relevance scoring is requested, use project-specific logic
       if (input.projectPath && input.includeRelevanceScore) {
         const projectInput = {
           projectPath: input.projectPath,
@@ -54,12 +70,11 @@ server.tool(
         };
         const result = await getConversationsByProject(projectInput);
 
-        // Transform to match list_conversations format
         const transformedResult = {
           conversations: result.conversations.map(conv => ({
             ...conv,
-            title: undefined, // Project results don't include titles
-            aiGeneratedSummary: undefined, // Project results don't include AI summaries
+            title: undefined,
+            aiGeneratedSummary: undefined,
             relevanceScore: conv.relevanceScore
           })),
           totalFound: result.totalFound,
@@ -82,7 +97,6 @@ server.tool(
           }]
         };
       } else {
-        // Use standard list_conversations logic
         const mappedInput = {
           limit: input.limit,
           minLength: input.minLength,
@@ -92,6 +106,8 @@ server.tool(
           projectPath: input.projectPath,
           filePattern: input.filePattern,
           relevantFiles: input.relevantFiles,
+          startDate: input.startDate,
+          endDate: input.endDate,
           includeEmpty: input.includeEmpty,
           includeAiSummaries: input.includeAiSummaries
         };
@@ -115,18 +131,16 @@ server.tool(
   }
 );
 
-// Simplified: Get conversation with sensible defaults
 server.tool(
   'get_conversation',
-  'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. This provides full conversation details and should be used when you need to analyze specific conversations identified through list_conversations or search_conversations. Use summaryOnly=true to get enhanced summary data without full message content when appropriate.',
+  'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. WORKFLOW TIP: Use conversation IDs from list_conversations, search_conversations, or analytics breakdowns (files/languages arrays contain conversation IDs). Use summaryOnly=true to get enhanced summary data without full message content when you need to conserve context.',
   {
-    conversationId: z.string().min(1).describe('Unique identifier of the conversation to retrieve'),
+    conversationId: z.string().min(1).describe('Conversation ID from list_conversations, search_conversations, or analytics breakdowns'),
     summaryOnly: z.boolean().optional().default(false).describe('Return only enhanced summary data without full message content'),
     outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
-      // Use sensible defaults for most users
       const fullInput = {
         ...input,
         includeCodeBlocks: true,
@@ -153,22 +167,16 @@ server.tool(
   }
 );
 
-// Enhanced: Search conversations with multi-keyword and LIKE pattern support
 server.tool(
   'search_conversations',
-  'Searches through Cursor chat content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.',
+  'Searches through Cursor chat content using multiple powerful methods to find relevant discussions. Returns conversation summaries with IDs - ALWAYS follow up with get_conversation for specific conversations of interest. WORKFLOW TIP: This tool gives you conversation IDs in the results - use them directly with get_conversation to examine full content.\n\nSearch methods:\n1. Exact text matching: Use query parameter for literal string matching (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n4. Date range: Filter by message timestamps (YYYY-MM-DD format - note: timestamps may be unreliable)\n\nIMPORTANT: When using date filters, call get_system_info first to know today\'s date, as AI assistants may not have access to current date information.\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.',
   {
-    // Simple query (backward compatible)
-    query: z.string().optional().describe('Basic text search - use for simple searches like "react hooks" or "error handling"'),
-
-    // Multi-keyword search
-    keywords: z.array(z.string().min(1)).optional().describe('Array of keywords for precise matching - use with keywordOperator to find conversations with specific combinations'),
+    query: z.string().optional().describe('Exact text matching - searches for literal string occurrences in conversation content (e.g., "react hooks" finds conversations containing those exact words)'),
+    keywords: z.array(z.string().min(1)).optional().describe('Array of keywords for exact text matching - use with keywordOperator to find conversations with specific combinations'),
     keywordOperator: z.enum(['AND', 'OR']).optional().default('OR').describe('How to combine keywords: "AND" = all keywords must be present, "OR" = any keyword can be present'),
-
-    // LIKE pattern search (database-level)
     likePattern: z.string().optional().describe('SQL LIKE pattern for advanced searches - use % for any characters, _ for single character. Examples: "%useState(%" for function calls, "%.tsx%" for file types'),
-
-    // Search options
+    startDate: z.string().optional().describe('Start date for search (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
+    endDate: z.string().optional().describe('End date for search (YYYY-MM-DD). Note: Timestamps may be unreliable.'),
     searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
     includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results'),
@@ -176,19 +184,16 @@ server.tool(
   },
   async (input) => {
     try {
-      // Validate that at least one search method is provided
       if (!input.query && !input.keywords && !input.likePattern) {
         throw new Error('At least one of query, keywords, or likePattern must be provided');
       }
 
-      // Map to full search schema with sensible defaults
       const fullInput = {
         ...input,
         contextLines: 2,
         searchBubbles: true,
         format: 'both' as const,
         highlightMatches: true,
-        // Project search settings
         projectSearch: input.searchType === 'project',
         fuzzyMatch: input.searchType === 'project',
         includePartialPaths: input.searchType === 'project',
@@ -215,17 +220,15 @@ server.tool(
   }
 );
 
-
-
-// Analytics: Get comprehensive conversation analytics
 server.tool(
   'get_conversation_analytics',
-  'Get comprehensive analytics and statistics about Cursor chats including usage patterns, file activity, programming language distribution, and temporal trends. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about chat data.',
+  'Get comprehensive analytics and statistics about Cursor chats including usage patterns, file activity, programming language distribution, and temporal trends. WORKFLOW TIP: Always include "files" and "languages" in breakdowns - these contain conversation IDs in their arrays that you can immediately use with get_conversation tool. For example, files breakdown shows which conversations mention specific files. Use includeConversationDetails=true when you need the full conversation ID list and basic metadata for follow-up analysis. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about chat data.',
   {
     scope: z.enum(['all', 'recent', 'project']).optional().default('all').describe('Analysis scope: all conversations, recent only, or project-specific'),
     projectPath: z.string().optional().describe('Project path for project-scoped analysis'),
     recentDays: z.number().min(1).max(365).optional().default(30).describe('Number of recent days to analyze (1-365)'),
-    includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']).describe('Types of breakdowns to include in the analysis'),
+    includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']).describe('Types of breakdowns to include in the analysis. IMPORTANT: "files" and "languages" breakdowns contain conversation IDs in their arrays - use these for follow-up analysis!'),
+    includeConversationDetails: z.boolean().optional().default(false).describe('Include full conversation ID list and basic metadata (increases response size significantly)'),
     outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
@@ -248,7 +251,6 @@ server.tool(
   }
 );
 
-// Analytics: Find related conversations
 server.tool(
   'find_related_conversations',
   'Find conversations related to a reference conversation based on shared files, folders, programming languages, similar size, or temporal proximity. Use this to discover related discussions, find conversations about the same codebase/project, identify similar problem-solving sessions, or trace the evolution of ideas across multiple conversations.',
@@ -280,7 +282,6 @@ server.tool(
   }
 );
 
-// Extraction: Extract conversation elements
 server.tool(
   'extract_conversation_elements',
   'Extract specific elements from conversations such as file references, code blocks, programming languages, folder paths, metadata, or conversation structure. Use this to build knowledge bases, analyze code patterns, extract reusable snippets, understand project file usage, or prepare data for further analysis and documentation.',
@@ -324,7 +325,6 @@ server.tool(
   }
 );
 
-// Export: Export conversation data in various formats
 server.tool(
   'export_conversation_data',
   'Export chat data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup chat data in structured formats.',
@@ -367,6 +367,44 @@ server.tool(
         }]
       };
     }
+  }
+);
+
+server.tool(
+  'get_system_info',
+  'Get system information and utilities for AI assistants. Provides current date, timezone, and other helpful context that AI assistants may not have access to. Use this when you need reference information for date filtering, time-based queries, or other system context.',
+  {
+    info: z.enum(['date', 'timezone', 'all']).optional().default('all').describe('Type of system information to retrieve: "date" for current date only, "timezone" for timezone info, "all" for everything')
+  },
+  async (input) => {
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toISOString();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    let response = '';
+
+    if (input.info === 'date') {
+      response = `Current date: ${currentDate}`;
+    } else if (input.info === 'timezone') {
+      response = `Timezone: ${timezone}`;
+    } else {
+      response = [
+        `Current date: ${currentDate}`,
+        `Current time: ${currentTime}`,
+        `Timezone: ${timezone}`,
+        ``,
+        `Use this date information when applying date filters to search_conversations.`,
+        `Date format for filters: YYYY-MM-DD (e.g., "${currentDate}")`
+      ].join('\n');
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: response
+      }]
+    };
   }
 );
 
