@@ -61,7 +61,7 @@ export function formatResponse(data: any, format?: OutputFormat): string {
   return formatAsCompactText(data);
 }
 
-// Format conversation lists (list_conversations, get_project_conversations)
+// Format conversation lists (list_conversations)
 function formatConversationList(data: any, format: OutputFormat): string {
   const { conversations, totalFound } = data;
 

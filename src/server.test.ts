@@ -32,62 +32,36 @@ describe('MCP Server', () => {
 
       expect(mockMcpServer).toHaveBeenCalledWith({
         name: 'cursor-chat-history-mcp',
-        version: '1.0.0'
+        version: '0.1.0'
       });
     });
 
     it('should register all conversation tools', async () => {
       await import('./server.js');
 
-      // Verify that tools are registered
-      expect(mockServer.tool).toHaveBeenCalledWith(
+      // Verify that the correct tools are registered
+      const expectedTools = [
         'list_conversations',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
-
-      expect(mockServer.tool).toHaveBeenCalledWith(
         'get_conversation',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
-
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'get_conversation_summary',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
-
-      expect(mockServer.tool).toHaveBeenCalledWith(
         'search_conversations',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
+        'get_conversation_analytics',
+        'find_related_conversations',
+        'extract_conversation_elements',
+        'export_conversation_data'
+      ];
 
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'get_bubble_message',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
+      // Check that the expected number of tools are registered
+      expect(mockServer.tool).toHaveBeenCalledTimes(expectedTools.length);
 
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'get_recent_conversations',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
-
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'get_conversations_by_project',
-        expect.any(String),
-        expect.any(Object),
-        expect.any(Function)
-      );
+      // Verify each tool is registered with proper parameters
+      expectedTools.forEach(toolName => {
+        expect(mockServer.tool).toHaveBeenCalledWith(
+          toolName,
+          expect.any(String),
+          expect.any(Object),
+          expect.any(Function)
+        );
+      });
     });
   });
 

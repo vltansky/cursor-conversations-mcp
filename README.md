@@ -53,10 +53,9 @@ Add to your `.cursor/mcp.json`:
 
 ### Core Tools
 
-- **`list_conversations`** - Browse conversations with filtering options
+- **`list_conversations`** - Browse conversations with filtering options and optional project relevance scoring
 - **`get_conversation`** - Retrieve full conversation content with code and file references
 - **`search_conversations`** - Enhanced search with multi-keyword, LIKE patterns, and text search
-- **`get_project_conversations`** - Get project-specific conversations or recent activity
 
 ### Analytics & Data Extraction Tools
 
@@ -130,7 +129,6 @@ The entire system is designed to be both powerful and context-efficient:
 2. **Smart Result Delivery**: Different tools provide focused outputs:
    - **`list_conversations`**: Returns conversation summaries with titles and metadata
    - **`search_conversations`**: Searches full content but returns only summaries with relevance scores
-   - **`get_project_conversations`**: Provides project-focused summaries
    - **Analytics tools**: Extract insights and patterns without overwhelming detail
 
 3. **Summary-First Results**: Most tools return:
@@ -177,11 +175,13 @@ All tools support multiple output formats via the `outputMode` parameter:
 ### Core Tools
 
 **`list_conversations`**
-- `limit` (default: 20) - Number of conversations to return
+- `limit` (default: 10) - Number of conversations to return
 - `includeAiSummaries` (default: true) - Include AI-generated summaries for efficient browsing
 - `projectPath` - Filter by project path
+- `includeRelevanceScore` (default: false) - Include relevance scores when filtering by projectPath
 - `hasCodeBlocks` - Filter conversations with/without code
 - `keywords` - Search by keywords
+- `filePattern` - Filter by file pattern
 
 **`get_conversation`**
 - `conversationId` (required) - Conversation to retrieve
@@ -196,10 +196,7 @@ All tools support multiple output formats via the `outputMode` parameter:
 - `maxResults` (default: 10) - Maximum results
 - `includeCode` (default: true) - Include code blocks
 
-**`get_project_conversations`**
-- `projectPath` - Project to filter by (optional - returns recent if omitted)
-- `limit` (default: 20) - Number of results
-- `filePattern` - File pattern filter
+
 
 ### Analytics & Data Extraction Tools
 

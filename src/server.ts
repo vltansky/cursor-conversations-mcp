@@ -6,7 +6,6 @@ import {
   listConversations,
   getConversation,
   searchConversations,
-  getRecentConversations,
   getConversationsByProject
 } from './tools/conversation-tools.js';
 import {
@@ -25,10 +24,10 @@ const server = new McpServer({
   version: '0.1.0',
 });
 
-// Simplified: List conversations with essential filters only
+// Enhanced: List conversations with project relevance scoring
 server.tool(
   'list_conversations',
-  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
+  'Lists Cursor chats with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. When projectPath is specified, adds relevance scoring for project-specific filtering. Use this to browse and discover conversations before retrieving full content with get_conversation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     limit: z.number().min(1).max(100).optional().default(10),
     minLength: z.number().min(0).optional().default(100),
@@ -40,30 +39,73 @@ server.tool(
     relevantFiles: z.array(z.string()).optional(),
     includeEmpty: z.boolean().optional().default(false),
     includeAiSummaries: z.boolean().optional().default(true),
+    includeRelevanceScore: z.boolean().optional().default(false).describe('Include relevance scores when filtering by projectPath'),
     outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
-      const mappedInput = {
-        limit: input.limit,
-        minLength: input.minLength,
-        format: input.format,
-        hasCodeBlocks: input.hasCodeBlocks,
-        keywords: input.keywords,
-        projectPath: input.projectPath,
-        filePattern: input.filePattern,
-        relevantFiles: input.relevantFiles,
-        includeEmpty: input.includeEmpty,
-        includeAiSummaries: input.includeAiSummaries
-      };
+      // If projectPath is specified and relevance scoring is requested, use project-specific logic
+      if (input.projectPath && input.includeRelevanceScore) {
+        const projectInput = {
+          projectPath: input.projectPath,
+          filePattern: input.filePattern,
+          orderBy: 'recency' as const,
+          limit: input.limit,
+          fuzzyMatch: false
+        };
+        const result = await getConversationsByProject(projectInput);
 
-      const result = await listConversations(mappedInput);
-      return {
-        content: [{
-          type: 'text',
-          text: formatResponse(result, input.outputMode)
-        }]
-      };
+        // Transform to match list_conversations format
+        const transformedResult = {
+          conversations: result.conversations.map(conv => ({
+            ...conv,
+            title: undefined, // Project results don't include titles
+            aiGeneratedSummary: undefined, // Project results don't include AI summaries
+            relevanceScore: conv.relevanceScore
+          })),
+          totalFound: result.totalFound,
+          filters: {
+            limit: input.limit ?? 10,
+            minLength: input.minLength ?? 100,
+            format: input.format ?? 'both',
+            hasCodeBlocks: input.hasCodeBlocks,
+            keywords: input.keywords,
+            projectPath: input.projectPath,
+            filePattern: input.filePattern,
+            relevantFiles: input.relevantFiles,
+            includeAiSummaries: input.includeAiSummaries
+          }
+        };
+
+        return {
+          content: [{
+            type: 'text',
+            text: formatResponse(transformedResult, input.outputMode)
+          }]
+        };
+      } else {
+        // Use standard list_conversations logic
+        const mappedInput = {
+          limit: input.limit,
+          minLength: input.minLength,
+          format: input.format,
+          hasCodeBlocks: input.hasCodeBlocks,
+          keywords: input.keywords,
+          projectPath: input.projectPath,
+          filePattern: input.filePattern,
+          relevantFiles: input.relevantFiles,
+          includeEmpty: input.includeEmpty,
+          includeAiSummaries: input.includeAiSummaries
+        };
+
+        const result = await listConversations(mappedInput);
+        return {
+          content: [{
+            type: 'text',
+            text: formatResponse(result, input.outputMode)
+          }]
+        };
+      }
     } catch (error) {
       return {
         content: [{
@@ -175,60 +217,7 @@ server.tool(
   }
 );
 
-// Consolidated: Get conversations by project (replaces get_recent_conversations and get_conversations_by_project)
-server.tool(
-  'get_project_conversations',
-  'Retrieves conversations filtered by project path or returns recent conversations when no project is specified. Useful for finding discussions related to specific codebases or getting an overview of recent activity. Returns conversation summaries with file and folder context.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
-  {
-    projectPath: z.string().optional(),
-    limit: z.number().min(1).max(100).optional().default(20),
-    filePattern: z.string().optional(),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
-  },
-  async (input) => {
-    try {
-      if (input.projectPath) {
-        const fullInput = {
-          projectPath: input.projectPath,
-          filePattern: input.filePattern,
-          orderBy: 'recency' as const,
-          limit: input.limit,
-          fuzzyMatch: false
-        };
-        const result = await getConversationsByProject(fullInput);
-        return {
-          content: [{
-            type: 'text',
-            text: formatResponse(result, input.outputMode)
-          }]
-        };
-      } else {
-        const fullInput = {
-          limit: input.limit,
-          includeEmpty: false,
-          format: 'both' as const,
-          includeFirstMessage: true,
-          maxFirstMessageLength: 150,
-          includeMetadata: false
-        };
-        const result = await getRecentConversations(fullInput);
-        return {
-          content: [{
-            type: 'text',
-            text: formatResponse(result, input.outputMode)
-          }]
-        };
-      }
-    } catch (error) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
-        }]
-      };
-    }
-  }
-);
+
 
 // Analytics: Get comprehensive conversation analytics
 server.tool(
