@@ -31,7 +31,6 @@ server.tool(
   {
     limit: z.number().min(1).max(100).optional().default(10).describe('Maximum number of conversations to return (1-100)'),
     minLength: z.number().min(0).optional().default(100).describe('Minimum conversation length in characters to include'),
-    format: z.enum(['legacy', 'modern', 'both']).optional().default('both').describe('Conversation format to include: legacy, modern, or both'),
     hasCodeBlocks: z.boolean().optional().describe('Filter to conversations that contain code blocks'),
     keywords: z.array(z.string()).optional().describe('Filter conversations containing any of these keywords'),
     projectPath: z.string().optional().describe('Filter conversations related to this project path'),
@@ -67,7 +66,6 @@ server.tool(
           filters: {
             limit: input.limit ?? 10,
             minLength: input.minLength ?? 100,
-            format: input.format ?? 'both',
             hasCodeBlocks: input.hasCodeBlocks,
             keywords: input.keywords,
             projectPath: input.projectPath,
@@ -88,7 +86,7 @@ server.tool(
         const mappedInput = {
           limit: input.limit,
           minLength: input.minLength,
-          format: input.format,
+          format: 'both' as const,
           hasCodeBlocks: input.hasCodeBlocks,
           keywords: input.keywords,
           projectPath: input.projectPath,
@@ -123,7 +121,6 @@ server.tool(
   'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. This provides full conversation details and should be used when you need to analyze specific conversations identified through list_conversations or search_conversations. Use summaryOnly=true to get enhanced summary data without full message content when appropriate.',
   {
     conversationId: z.string().min(1).describe('Unique identifier of the conversation to retrieve'),
-    includeMetadata: z.boolean().optional().default(false).describe('Include additional metadata like timestamps and file paths'),
     summaryOnly: z.boolean().optional().default(false).describe('Return only enhanced summary data without full message content'),
     outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
@@ -134,6 +131,7 @@ server.tool(
         ...input,
         includeCodeBlocks: true,
         includeFileReferences: true,
+        includeMetadata: false,
         resolveBubbles: true
       };
       const result = await getConversation(fullInput);
