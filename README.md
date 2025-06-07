@@ -2,7 +2,7 @@
 
 **Give AI assistants access to your Cursor conversation history.**
 
-A Model Context Protocol (MCP) server that allows Claude, GPT, and other AI assistants to read and analyze your Cursor conversation data. This enables personalized coding assistance based on your actual development patterns and history.
+A Model Context Protocol (MCP) server that allows Cursor, Claude, and other AI assistants to read and analyze your Cursor conversation data. This enables personalized coding assistance based on your actual development patterns and history.
 
 ## What This Enables
 
