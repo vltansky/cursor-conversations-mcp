@@ -380,7 +380,17 @@ export async function getConversationSummary(input: GetConversationSummaryInput)
 
 // Input schema for search_conversations tool
 export const searchConversationsSchema = z.object({
-  query: z.string().min(1),
+  // Simple query (existing - backward compatible)
+  query: z.string().optional(),
+
+  // Multi-keyword search
+  keywords: z.array(z.string().min(1)).optional(),
+  keywordOperator: z.enum(['AND', 'OR']).optional().default('OR'),
+
+  // LIKE pattern search (database-level)
+  likePattern: z.string().optional(),
+
+  // Existing options
   includeCode: z.boolean().optional().default(true),
   contextLines: z.number().min(0).max(10).optional().default(2),
   maxResults: z.number().min(1).max(100).optional().default(10),
@@ -394,7 +404,10 @@ export const searchConversationsSchema = z.object({
   includeFileContent: z.boolean().optional().default(false),
   minRelevanceScore: z.number().min(0).max(1).optional().default(0.1),
   orderBy: z.enum(['relevance', 'recency']).optional().default('relevance')
-});
+}).refine(
+  (data) => data.query || data.keywords || data.likePattern,
+  { message: "At least one of query, keywords, or likePattern must be provided" }
+);
 
 export type SearchConversationsInput = z.infer<typeof searchConversationsSchema>;
 
@@ -450,7 +463,7 @@ export interface SearchConversationsOutput {
 }
 
 /**
- * Search conversations with enhanced project-based matching
+ * Search conversations with enhanced multi-keyword and LIKE pattern support
  */
 export async function searchConversations(input: SearchConversationsInput): Promise<SearchConversationsOutput> {
   const validatedInput = searchConversationsSchema.parse(input);
@@ -460,7 +473,14 @@ export async function searchConversations(input: SearchConversationsInput): Prom
   try {
     await reader.connect();
 
-    if (validatedInput.projectSearch) {
+    // Determine the search query for display purposes
+    const displayQuery = validatedInput.query ||
+                        (validatedInput.keywords ? validatedInput.keywords.join(` ${validatedInput.keywordOperator} `) : '') ||
+                        validatedInput.likePattern ||
+                        'advanced search';
+
+    if (validatedInput.projectSearch && validatedInput.query) {
+      // Handle project search (existing logic)
       const searchOptions = {
         fuzzyMatch: validatedInput.fuzzyMatch,
         includePartialPaths: validatedInput.includePartialPaths,
@@ -561,7 +581,7 @@ export async function searchConversations(input: SearchConversationsInput): Prom
       return {
         conversations: conversations.slice(0, validatedInput.maxResults),
         totalResults: conversations.length,
-        query: validatedInput.query,
+        query: displayQuery,
         searchOptions: {
           includeCode: validatedInput.includeCode,
           contextLines: validatedInput.contextLines,
@@ -584,7 +604,12 @@ export async function searchConversations(input: SearchConversationsInput): Prom
         }
       };
     } else {
-      const searchResults = await reader.searchConversations(validatedInput.query, {
+      // Handle enhanced search with keywords, LIKE patterns, or simple query
+      const searchResults = await reader.searchConversationsEnhanced({
+        query: validatedInput.query,
+        keywords: validatedInput.keywords,
+        keywordOperator: validatedInput.keywordOperator,
+        likePattern: validatedInput.likePattern,
         includeCode: validatedInput.includeCode,
         contextLines: validatedInput.contextLines,
         maxResults: validatedInput.maxResults,
@@ -596,7 +621,7 @@ export async function searchConversations(input: SearchConversationsInput): Prom
       return {
         results: searchResults,
         totalResults: searchResults.length,
-        query: validatedInput.query,
+        query: displayQuery,
         searchOptions: {
           includeCode: validatedInput.includeCode,
           contextLines: validatedInput.contextLines,

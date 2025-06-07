@@ -107,18 +107,33 @@ server.tool(
   }
 );
 
-// Simplified: Search conversations with essential options
+// Enhanced: Search conversations with multi-keyword and LIKE pattern support
 server.tool(
   'search_conversations',
-  'Search through Cursor conversation content using exact keyword matching (like grep, not semantic search). Use specific terms that would literally appear in conversations: function names, library names, file extensions, error messages, or code snippets. For broader results, try multiple searches with different related keywords rather than complex phrases.',
-  {
-    query: z.string().min(1),
-    searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all'),
-    maxResults: z.number().min(1).max(50).optional().default(10),
-    includeCode: z.boolean().optional().default(true)
+  'Search through Cursor conversation content using multiple powerful methods. Choose the best approach for your needs:\n\n1. SIMPLE QUERY: Use "query" for basic text search (e.g., "react hooks", "error handling")\n\n2. MULTI-KEYWORD SEARCH: Use "keywords" array with "keywordOperator" for precise matching:\n   - OR search: {"keywords": ["react", "vue", "angular"], "keywordOperator": "OR"} - finds conversations mentioning ANY of these\n   - AND search: {"keywords": ["typescript", "interface", "generic"], "keywordOperator": "AND"} - finds conversations mentioning ALL of these\n\n3. LIKE PATTERNS: Use "likePattern" for advanced pattern matching with SQL wildcards:\n   - Function calls: "%useState(%" or "%useEffect(%"\n   - File extensions: "%.tsx%" or "%.py%"\n   - Code patterns: "%interface %{%" or "%class %extends%"\n   - Wildcards: % = any characters, _ = single character\n\n4. COMBINED SEARCH: Mix methods for complex queries\n\nUse specific terms that would literally appear in conversations. LIKE patterns are fastest for code pattern searches.',
+    {
+    // Simple query (backward compatible)
+    query: z.string().optional().describe('Basic text search - use for simple searches like "react hooks" or "error handling"'),
+
+    // Multi-keyword search
+    keywords: z.array(z.string().min(1)).optional().describe('Array of keywords for precise matching - use with keywordOperator to find conversations with specific combinations'),
+    keywordOperator: z.enum(['AND', 'OR']).optional().default('OR').describe('How to combine keywords: "AND" = all keywords must be present, "OR" = any keyword can be present'),
+
+    // LIKE pattern search (database-level)
+    likePattern: z.string().optional().describe('SQL LIKE pattern for advanced searches - use % for any characters, _ for single character. Examples: "%useState(%" for function calls, "%.tsx%" for file types'),
+
+    // Search options
+    searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
+    maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
+    includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results')
   },
   async (input) => {
     try {
+      // Validate that at least one search method is provided
+      if (!input.query && !input.keywords && !input.likePattern) {
+        throw new Error('At least one of query, keywords, or likePattern must be provided');
+      }
+
       // Map to full search schema with sensible defaults
       const fullInput = {
         ...input,
@@ -131,9 +146,8 @@ server.tool(
         fuzzyMatch: input.searchType === 'project',
         includePartialPaths: input.searchType === 'project',
         includeFileContent: false,
-        minRelevanceScore: 1,
-        orderBy: 'recency' as const,
-        includeDebugInfo: false
+        minRelevanceScore: 0.1,
+        orderBy: 'recency' as const
       };
       const result = await searchConversations(fullInput);
 

@@ -54,7 +54,7 @@ Add to your `.cursor/mcp.json`:
 
 - **`list_conversations`** - Browse conversations with filtering options
 - **`get_conversation`** - Retrieve full conversation content with code and file references
-- **`search_conversations`** - Search through conversation content (text, project, or file-based)
+- **`search_conversations`** - Enhanced search with multi-keyword, LIKE patterns, and text search
 - **`get_project_conversations`** - Get project-specific conversations or recent activity
 
 ### Analytics & Data Extraction Tools
@@ -68,14 +68,24 @@ Add to your `.cursor/mcp.json`:
 
 ### Generate Coding Rules
 ```
-"Analyze my TypeScript conversations and create ESLint rules that match my style"
-"Get analytics on my most used files and create import organization rules"
+"Search for TypeScript interface discussions and create naming conventions"
+"Find all conversations about error handling patterns and create guidelines"
+"Use keywords=['typescript', 'interface'] with AND operator to find interface discussions"
 ```
 
 ### Extract Best Practices
 ```
-"Look at my React state management discussions and create usage guidelines"
-"Extract all code blocks using useState and create a patterns guide"
+"Search with likePattern='%useState(%' to find all React hook usage examples"
+"Use keywords=['react', 'state', 'management'] to find state management patterns"
+"Search for '%class %extends%' pattern to analyze inheritance usage"
+```
+
+### Advanced Search Examples
+```
+"Find conversations about specific functions: likePattern='%useEffect(%'"
+"Search for file-specific discussions: likePattern='%.tsx%' or likePattern='%.py%'"
+"Multi-keyword AND search: keywords=['typescript', 'generic', 'interface']"
+"Multi-keyword OR search: keywords=['react', 'vue', 'angular'] to compare frameworks"
 ```
 
 ### Create Project Documentation
@@ -131,11 +141,25 @@ The npx configuration above handles installation automatically.
 - `conversationId` (required) - Conversation to retrieve
 - `includeMetadata` (default: false) - Include additional metadata
 
-**`search_conversations`**
-- `query` (required) - Search term
+**`search_conversations`** - Enhanced search with multiple methods
+- **Simple Query**: `query` - Basic text search (backward compatible)
+- **Multi-keyword**: `keywords` array with `keywordOperator` ('AND'/'OR')
+- **LIKE Patterns**: `likePattern` - SQL LIKE patterns (% = any chars, _ = single char)
 - `searchType` (default: 'all') - 'all', 'project', 'files', 'code'
 - `maxResults` (default: 10) - Maximum results
 - `includeCode` (default: true) - Include code blocks
+
+Examples:
+```json
+// Simple search
+{"query": "react hooks"}
+
+// Multi-keyword AND
+{"keywords": ["react", "typescript"], "keywordOperator": "AND"}
+
+// LIKE pattern for function calls
+{"likePattern": "%useState(%useEffect%"}
+```
 
 **`get_project_conversations`**
 - `projectPath` - Project to filter by (optional - returns recent if omitted)

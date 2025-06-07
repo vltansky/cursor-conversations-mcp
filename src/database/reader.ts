@@ -533,7 +533,7 @@ export class CursorDatabaseReader {
   }
 
   /**
-   * Search conversations by content
+   * Search conversations by content (original method)
    */
   async searchConversations(query: string, options?: {
     includeCode?: boolean;
@@ -672,6 +672,219 @@ export class CursorDatabaseReader {
         }
       } catch (error) {
         console.error(`Failed to parse conversation ${composerId} during search:`, error);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Enhanced search with multi-keyword and LIKE pattern support
+   */
+  async searchConversationsEnhanced(options: {
+    query?: string;
+    keywords?: string[];
+    keywordOperator?: 'AND' | 'OR';
+    likePattern?: string;
+    includeCode?: boolean;
+    contextLines?: number;
+    maxResults?: number;
+    searchBubbles?: boolean;
+    searchType?: 'all' | 'summarization' | 'code' | 'files';
+    format?: 'legacy' | 'modern' | 'both';
+  }): Promise<ConversationSearchResult[]> {
+    this.ensureConnected();
+
+    const maxResults = sanitizeLimit(options?.maxResults, 100);
+    const format = options?.format || 'both';
+
+    // Build search conditions for SQL
+    let searchConditions: string[] = [];
+    let searchParams: any[] = [];
+
+    // Handle simple query
+    if (options.query) {
+      const sanitizedQuery = sanitizeSearchQuery(options.query);
+
+      switch (options?.searchType) {
+        case 'summarization':
+          searchConditions.push('(value LIKE ? OR value LIKE ? OR value LIKE ?)');
+          searchParams.push('%summarization%', '%summarize%', '%summary%');
+          break;
+        case 'code':
+          searchConditions.push('(value LIKE ? OR value LIKE ?)');
+          searchParams.push('%suggestedCodeBlocks%', '%```%');
+          break;
+        case 'files':
+          searchConditions.push('(value LIKE ? OR value LIKE ?)');
+          searchParams.push('%relevantFiles%', '%attachedFoldersNew%');
+          break;
+        default:
+          searchConditions.push('value LIKE ?');
+          searchParams.push(`%${sanitizedQuery}%`);
+      }
+    }
+
+    // Handle multi-keyword search
+    if (options.keywords && options.keywords.length > 0) {
+      const keywordConditions = options.keywords.map(() => 'value LIKE ?');
+      const operator = options.keywordOperator === 'AND' ? ' AND ' : ' OR ';
+      searchConditions.push(`(${keywordConditions.join(operator)})`);
+
+      options.keywords.forEach(keyword => {
+        const sanitizedKeyword = sanitizeSearchQuery(keyword);
+        searchParams.push(`%${sanitizedKeyword}%`);
+      });
+    }
+
+    // Handle LIKE pattern search
+    if (options.likePattern) {
+      searchConditions.push('value LIKE ?');
+      searchParams.push(options.likePattern);
+    }
+
+    // If no search conditions, return empty results
+    if (searchConditions.length === 0) {
+      return [];
+    }
+
+    // Build the complete SQL query
+    let sql = `
+      SELECT key, value FROM cursorDiskKV
+      WHERE key LIKE 'composerData:%'
+      AND length(value) > ?
+      AND (${searchConditions.join(' OR ')})
+    `;
+
+    const params: any[] = [
+      this.config.minConversationSize || 5000,
+      ...searchParams
+    ];
+
+    // Add format filter
+    if (format === 'legacy') {
+      sql += ` AND value NOT LIKE '%"_v":%'`;
+    } else if (format === 'modern') {
+      sql += ` AND value LIKE '%"_v":%'`;
+    }
+
+    sql += ` ORDER BY ROWID DESC LIMIT ?`;
+    params.push(maxResults);
+
+    const stmt = this.db!.prepare(sql);
+    const rows = stmt.all(...params) as Array<{ key: string; value: string }>;
+
+    const results: ConversationSearchResult[] = [];
+
+    // Process each conversation
+    for (const row of rows) {
+      const composerId = extractComposerIdFromKey(row.key);
+      if (!composerId) continue;
+
+      try {
+        const conversation = JSON.parse(row.value) as CursorConversation;
+        const conversationFormat = isLegacyConversation(conversation) ? 'legacy' : 'modern';
+        const matches: SearchMatch[] = [];
+
+        // For message-level search, we need to check individual messages
+        if (options.query || (options.keywords && options.keywords.length > 0)) {
+          const searchTerms: string[] = [];
+          if (options.query) searchTerms.push(options.query);
+          if (options.keywords) searchTerms.push(...options.keywords);
+
+          if (isLegacyConversation(conversation)) {
+            // Search in legacy format messages
+            conversation.conversation.forEach((message, index) => {
+              const messageText = message.text.toLowerCase();
+
+              for (const term of searchTerms) {
+                const sanitizedTerm = sanitizeSearchQuery(term).toLowerCase();
+                if (messageText.includes(sanitizedTerm)) {
+                  matches.push({
+                    messageIndex: index,
+                    text: message.text,
+                    context: this.extractContext(message.text, term, options?.contextLines || 3),
+                    type: message.type
+                  });
+                  break; // Only add one match per message
+                }
+              }
+            });
+          } else if (isModernConversation(conversation) && options?.searchBubbles) {
+            // Search in modern format bubble messages
+            const headers = conversation.fullConversationHeadersOnly || [];
+
+            for (let index = 0; index < headers.length; index++) {
+              const header = headers[index];
+              try {
+                const bubbleMessage = await this.getBubbleMessage(composerId, header.bubbleId);
+                if (bubbleMessage) {
+                  const messageText = bubbleMessage.text.toLowerCase();
+
+                  for (const term of searchTerms) {
+                    const sanitizedTerm = sanitizeSearchQuery(term).toLowerCase();
+                    if (messageText.includes(sanitizedTerm)) {
+                      matches.push({
+                        messageIndex: index,
+                        bubbleId: header.bubbleId,
+                        text: bubbleMessage.text,
+                        context: this.extractContext(bubbleMessage.text, term, options?.contextLines || 3),
+                        type: bubbleMessage.type
+                      });
+                      break; // Only add one match per message
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error(`Failed to resolve bubble ${header.bubbleId} during search:`, error);
+              }
+            }
+          }
+        } else {
+          // For LIKE pattern only, we already filtered at SQL level, so include all
+          matches.push({
+            messageIndex: 0,
+            text: 'Pattern match found in conversation data',
+            context: 'LIKE pattern matched conversation content',
+            type: 1
+          });
+        }
+
+        if (matches.length > 0) {
+          let relevantFiles: string[] = [];
+          let attachedFolders: string[] = [];
+
+          if (isLegacyConversation(conversation)) {
+            for (const message of conversation.conversation) {
+              if (message.relevantFiles) relevantFiles.push(...message.relevantFiles);
+              if (message.attachedFoldersNew) attachedFolders.push(...message.attachedFoldersNew);
+            }
+          } else if (isModernConversation(conversation) && options?.searchBubbles) {
+            // For modern format, collect files from bubble messages
+            const headers = conversation.fullConversationHeadersOnly || [];
+            for (const header of headers) {
+              try {
+                const bubbleMessage = await this.getBubbleMessage(composerId, header.bubbleId);
+                if (bubbleMessage) {
+                  if (bubbleMessage.relevantFiles) relevantFiles.push(...bubbleMessage.relevantFiles);
+                  if (bubbleMessage.attachedFoldersNew) attachedFolders.push(...bubbleMessage.attachedFoldersNew);
+                }
+              } catch (error) {
+                console.error(`Failed to resolve bubble ${header.bubbleId} for file extraction:`, error);
+              }
+            }
+          }
+
+          results.push({
+            composerId,
+            format: conversationFormat,
+            matches,
+            relevantFiles: Array.from(new Set(relevantFiles)),
+            attachedFolders: Array.from(new Set(attachedFolders))
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to parse conversation ${composerId} during enhanced search:`, error);
       }
     }
 
