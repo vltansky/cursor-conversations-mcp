@@ -28,7 +28,7 @@ const server = new McpServer({
 // Simplified: List conversations with essential filters only
 server.tool(
   'list_conversations',
-  'Lists Cursor conversations with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.',
+  'Lists Cursor conversations with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     limit: z.number().min(1).max(100).optional().default(10),
     minLength: z.number().min(0).optional().default(100),
@@ -40,7 +40,7 @@ server.tool(
     relevantFiles: z.array(z.string()).optional(),
     includeEmpty: z.boolean().optional().default(false),
     includeAiSummaries: z.boolean().optional().default(true),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -78,12 +78,12 @@ server.tool(
 // Simplified: Get conversation with sensible defaults
 server.tool(
   'get_conversation',
-  'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. This provides full conversation details and should be used when you need to analyze specific conversations identified through list_conversations or search_conversations. Use summaryOnly=true to get enhanced summary data without full message content when appropriate.',
+  'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. This provides full conversation details and should be used when you need to analyze specific conversations identified through list_conversations or search_conversations. Use summaryOnly=true to get enhanced summary data without full message content when appropriate.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     conversationId: z.string().min(1),
     includeMetadata: z.boolean().optional().default(false),
     summaryOnly: z.boolean().optional().default(false),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -116,7 +116,7 @@ server.tool(
 // Enhanced: Search conversations with multi-keyword and LIKE pattern support
 server.tool(
   'search_conversations',
-  'Searches through Cursor conversation content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.',
+  'Searches through Cursor conversation content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     // Simple query (backward compatible)
     query: z.string().optional().describe('Basic text search - use for simple searches like "react hooks" or "error handling"'),
@@ -132,7 +132,7 @@ server.tool(
     searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
     includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -178,12 +178,12 @@ server.tool(
 // Consolidated: Get conversations by project (replaces get_recent_conversations and get_conversations_by_project)
 server.tool(
   'get_project_conversations',
-  'Retrieves conversations filtered by project path or returns recent conversations when no project is specified. Useful for finding discussions related to specific codebases or getting an overview of recent activity. Returns conversation summaries with file and folder context.',
+  'Retrieves conversations filtered by project path or returns recent conversations when no project is specified. Useful for finding discussions related to specific codebases or getting an overview of recent activity. Returns conversation summaries with file and folder context.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     projectPath: z.string().optional(),
     limit: z.number().min(1).max(100).optional().default(20),
     filePattern: z.string().optional(),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -233,13 +233,13 @@ server.tool(
 // Analytics: Get comprehensive conversation analytics
 server.tool(
   'get_conversation_analytics',
-  'Get comprehensive analytics and statistics about Cursor conversations including usage patterns, file activity, programming language distribution, and temporal trends. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about conversation data.',
+  'Get comprehensive analytics and statistics about Cursor conversations including usage patterns, file activity, programming language distribution, and temporal trends. Use this when you need to understand conversation patterns, analyze coding activity across projects, identify most frequently discussed files/languages, or generate statistical reports about conversation data.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     scope: z.enum(['all', 'recent', 'project']).optional().default('all'),
     projectPath: z.string().optional(),
     recentDays: z.number().min(1).max(365).optional().default(30),
     includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -264,14 +264,14 @@ server.tool(
 // Analytics: Find related conversations
 server.tool(
   'find_related_conversations',
-  'Find conversations related to a reference conversation based on shared files, folders, programming languages, similar size, or temporal proximity. Use this to discover related discussions, find conversations about the same codebase/project, identify similar problem-solving sessions, or trace the evolution of ideas across multiple conversations.',
+  'Find conversations related to a reference conversation based on shared files, folders, programming languages, similar size, or temporal proximity. Use this to discover related discussions, find conversations about the same codebase/project, identify similar problem-solving sessions, or trace the evolution of ideas across multiple conversations.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     referenceConversationId: z.string().min(1),
     relationshipTypes: z.array(z.enum(['files', 'folders', 'languages', 'size', 'temporal'])).optional().default(['files']),
     maxResults: z.number().min(1).max(50).optional().default(10),
     minScore: z.number().min(0).max(1).optional().default(0.1),
     includeScoreBreakdown: z.boolean().optional().default(false),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -296,7 +296,7 @@ server.tool(
 // Extraction: Extract conversation elements
 server.tool(
   'extract_conversation_elements',
-  'Extract specific elements from conversations such as file references, code blocks, programming languages, folder paths, metadata, or conversation structure. Use this to build knowledge bases, analyze code patterns, extract reusable snippets, understand project file usage, or prepare data for further analysis and documentation.',
+  'Extract specific elements from conversations such as file references, code blocks, programming languages, folder paths, metadata, or conversation structure. Use this to build knowledge bases, analyze code patterns, extract reusable snippets, understand project file usage, or prepare data for further analysis and documentation.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     conversationIds: z.array(z.string()).optional(),
     elements: z.array(z.enum(['files', 'folders', 'languages', 'codeblocks', 'metadata', 'structure'])).optional().default(['files', 'codeblocks']),
@@ -307,7 +307,7 @@ server.tool(
       fileExtensions: z.array(z.string()).optional(),
       languages: z.array(z.string()).optional()
     }).optional(),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
@@ -340,7 +340,7 @@ server.tool(
 // Export: Export conversation data in various formats
 server.tool(
   'export_conversation_data',
-  'Export conversation data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup conversation data in structured formats.',
+  'Export conversation data in various formats (JSON, CSV, Graph) for external analysis, visualization, or integration with other tools. Use this to create datasets for machine learning, generate reports for stakeholders, prepare data for visualization tools like Gephi or Tableau, or backup conversation data in structured formats.\n\nOutput Formats: Use "markdown" (default) for human-readable results with proper formatting. Use "json" only when you need to programmatically process the data. Markdown is strongly recommended for AI-human collaboration.',
   {
     conversationIds: z.array(z.string()).optional(),
     format: z.enum(['json', 'csv', 'graph']).optional().default('json'),
@@ -352,7 +352,7 @@ server.tool(
       hasCodeBlocks: z.boolean().optional(),
       projectPath: z.string().optional()
     }).optional(),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
   },
   async (input) => {
     try {
