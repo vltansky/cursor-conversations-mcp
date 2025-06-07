@@ -162,15 +162,10 @@ The npx configuration above handles installation automatically.
 
 ### Output Formats
 
-All tools support multiple output formats via the `outputMode` parameter:
+All tools support JSON output formats via the `outputMode` parameter:
 
-- **`markdown` (default)** - Human-readable format with headers, bullet points, and proper formatting. **Strongly recommended for AI-human collaboration** as it's much easier to read and understand.
-- **`json`** - Raw JSON data. Use only when you need to programmatically process the results or integrate with other tools.
-- **`compact-json`** - Minified JSON without formatting. Most compact but hardest to read.
-- **`table`** - Tabular format for structured data comparison.
-- **`compact`** - Condensed text format for minimal context usage.
-
-**Recommendation**: Always use `markdown` (the default) unless you specifically need JSON for programmatic processing. The markdown format is designed to be context-efficient while remaining highly readable for both humans and AI assistants.
+- **`json` (default)** - Formatted JSON with proper indentation for readability
+- **`compact-json`** - Minified JSON without formatting for minimal size
 
 ### Core Tools
 

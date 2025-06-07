@@ -56,7 +56,7 @@ server.tool(
     includeEmpty: z.boolean().optional().default(false).describe('Include conversations with no messages'),
     includeAiSummaries: z.boolean().optional().default(true).describe('Include AI-generated conversation summaries'),
     includeRelevanceScore: z.boolean().optional().default(false).describe('Include relevance scores when filtering by projectPath'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -137,7 +137,7 @@ server.tool(
   {
     conversationId: z.string().min(1).describe('Conversation ID from list_conversations, search_conversations, or analytics breakdowns'),
     summaryOnly: z.boolean().optional().default(false).describe('Return only enhanced summary data without full message content'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -180,7 +180,7 @@ server.tool(
     searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
     includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -229,7 +229,7 @@ server.tool(
     recentDays: z.number().min(1).max(365).optional().default(30).describe('Number of recent days to analyze (1-365)'),
     includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']).describe('Types of breakdowns to include in the analysis. IMPORTANT: "files" and "languages" breakdowns contain conversation IDs in their arrays - use these for follow-up analysis!'),
     includeConversationDetails: z.boolean().optional().default(false).describe('Include full conversation ID list and basic metadata (increases response size significantly)'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -260,7 +260,7 @@ server.tool(
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of related conversations to return (1-50)'),
     minScore: z.number().min(0).max(1).optional().default(0.1).describe('Minimum similarity score threshold (0.0-1.0)'),
     includeScoreBreakdown: z.boolean().optional().default(false).describe('Include detailed breakdown of how similarity scores were calculated'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -295,7 +295,7 @@ server.tool(
       fileExtensions: z.array(z.string()).optional().describe('Only include files with these extensions'),
       languages: z.array(z.string()).optional().describe('Only include code blocks in these programming languages')
     }).optional().describe('Filters to apply when extracting elements'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
@@ -339,7 +339,7 @@ server.tool(
       hasCodeBlocks: z.boolean().optional().describe('Only include conversations with code blocks'),
       projectPath: z.string().optional().describe('Only include conversations related to this project path')
     }).optional().describe('Filters to apply when selecting conversations to export'),
-    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown').describe('Output format: "markdown" for human-readable results (recommended), "json" for programmatic processing only')
+    outputMode: z.enum(['json', 'compact-json']).optional().default('json').describe('Output format: "json" for formatted JSON (default), "compact-json" for minified JSON')
   },
   async (input) => {
     try {
