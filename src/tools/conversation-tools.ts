@@ -482,6 +482,10 @@ export const searchConversationsSchema = z.object({
   // LIKE pattern search (database-level)
   likePattern: z.string().optional(),
 
+  // Date filtering
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+
   // Existing options
   includeCode: z.boolean().optional().default(true),
   contextLines: z.number().min(0).max(10).optional().default(2),
@@ -497,8 +501,13 @@ export const searchConversationsSchema = z.object({
   minRelevanceScore: z.number().min(0).max(1).optional().default(0.1),
   orderBy: z.enum(['relevance', 'recency']).optional().default('relevance')
 }).refine(
-  (data) => data.query || data.keywords || data.likePattern,
-  { message: "At least one of query, keywords, or likePattern must be provided" }
+  (data) => {
+    const hasSearchCriteria = (data.query && data.query.trim() !== '' && data.query.trim() !== '?') || data.keywords || data.likePattern;
+    const hasDateFilter = data.startDate || data.endDate;
+    const hasOtherFilters = data.searchType !== 'all';
+    return hasSearchCriteria || hasDateFilter || hasOtherFilters;
+  },
+  { message: "At least one search criteria (query, keywords, likePattern), date filter (startDate, endDate), or search type filter must be provided" }
 );
 
 export type SearchConversationsInput = z.infer<typeof searchConversationsSchema>;
@@ -697,6 +706,73 @@ export async function searchConversations(input: SearchConversationsInput): Prom
         }
       };
     } else {
+      const hasSearchCriteria = (validatedInput.query && validatedInput.query.trim() !== '' && validatedInput.query.trim() !== '?') || validatedInput.keywords || validatedInput.likePattern;
+
+      if (!hasSearchCriteria && (validatedInput.startDate || validatedInput.endDate)) {
+        // Date-only search: get all conversations and filter by date
+        const allConversationIds = await reader.getConversationIds({
+          format: validatedInput.format
+        });
+
+        const conversations = [];
+        for (const composerId of allConversationIds.slice(0, validatedInput.maxResults * 2)) {
+          try {
+            const conversation = await reader.getConversationById(composerId);
+            if (!conversation) continue;
+
+            // Apply date filtering
+            const hasValidDate = checkConversationDateRange(
+              conversation,
+              validatedInput.startDate,
+              validatedInput.endDate
+            );
+
+            if (!hasValidDate) continue;
+
+            const summary = await reader.getConversationSummary(composerId, {
+              includeFirstMessage: true,
+              maxFirstMessageLength: 150,
+              includeTitle: true,
+              includeAIGeneratedSummary: true
+            });
+
+            if (summary) {
+              conversations.push({
+                composerId: summary.composerId,
+                format: summary.format,
+                messageCount: summary.messageCount,
+                hasCodeBlocks: summary.hasCodeBlocks,
+                relevantFiles: summary.relevantFiles || [],
+                attachedFolders: summary.attachedFolders || [],
+                firstMessage: summary.firstMessage,
+                title: summary.title,
+                aiGeneratedSummary: summary.aiGeneratedSummary,
+                size: summary.conversationSize
+              });
+
+              if (conversations.length >= validatedInput.maxResults) break;
+            }
+          } catch (error) {
+            console.error(`Failed to process conversation ${composerId}:`, error);
+          }
+        }
+
+        return {
+          conversations,
+          totalResults: conversations.length,
+          query: displayQuery,
+          searchOptions: {
+            includeCode: validatedInput.includeCode,
+            contextLines: validatedInput.contextLines,
+            maxResults: validatedInput.maxResults,
+            searchBubbles: validatedInput.searchBubbles,
+            searchType: validatedInput.searchType,
+            format: validatedInput.format,
+            highlightMatches: validatedInput.highlightMatches
+          }
+        };
+      }
+
       // Handle enhanced search with keywords, LIKE patterns, or simple query
       const searchResults = await reader.searchConversationsEnhanced({
         query: validatedInput.query,
@@ -708,13 +784,29 @@ export async function searchConversations(input: SearchConversationsInput): Prom
         maxResults: validatedInput.maxResults,
         searchBubbles: validatedInput.searchBubbles,
         searchType: validatedInput.searchType === 'project' ? 'all' : validatedInput.searchType,
-        format: validatedInput.format
+        format: validatedInput.format,
+        startDate: validatedInput.startDate,
+        endDate: validatedInput.endDate
       });
 
       // Convert search results to conversation summaries for consistency
       const conversations = [];
       for (const result of searchResults) {
         try {
+          // Apply date filtering if specified (post-query filtering due to unreliable timestamps)
+          if (validatedInput.startDate || validatedInput.endDate) {
+            const conversation = await reader.getConversationById(result.composerId);
+            if (!conversation) continue;
+
+            const hasValidDate = checkConversationDateRange(
+              conversation,
+              validatedInput.startDate,
+              validatedInput.endDate
+            );
+
+            if (!hasValidDate) continue;
+          }
+
           const summary = await reader.getConversationSummary(result.composerId, {
             includeFirstMessage: true,
             maxFirstMessageLength: 150,

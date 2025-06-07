@@ -184,8 +184,12 @@ server.tool(
   },
   async (input) => {
     try {
-      if (!input.query && !input.keywords && !input.likePattern) {
-        throw new Error('At least one of query, keywords, or likePattern must be provided');
+      const hasSearchCriteria = (input.query && input.query.trim() !== '' && input.query.trim() !== '?') || input.keywords || input.likePattern;
+      const hasDateFilter = input.startDate || input.endDate;
+      const hasOtherFilters = input.searchType !== 'all';
+
+      if (!hasSearchCriteria && !hasDateFilter && !hasOtherFilters) {
+        throw new Error('At least one search criteria (query, keywords, likePattern), date filter (startDate, endDate), or search type filter must be provided');
       }
 
       const fullInput = {
