@@ -4,13 +4,22 @@
   "description": "MCP server that provides AI assistants access to Cursor conversation history for analysis and insights",
   "type": "module",
   "main": "dist/server.js",
+  "bin": {
+    "cursor-conversations-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json"
+  ],
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node dist/server.js",
     "inspector": "nodemon --watch dist --exec 'npx @modelcontextprotocol/inspector node dist/server.js'",
     "test": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
