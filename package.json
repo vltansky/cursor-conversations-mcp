@@ -1,6 +1,6 @@
 {
   "name": "cursor-chat-history-mcp",
-  "version": "0.1.7",
+  "version": "0.1.9",
   "description": "MCP server that provides AI assistants access to Cursor chat history for analysis and insights",
   "type": "module",
   "main": "dist/server.js",
@@ -19,7 +19,8 @@
     "inspector": "nodemon --watch dist --exec 'npx @modelcontextprotocol/inspector node dist/server.js'",
     "test": "vitest run",
     "test:ui": "vitest --ui",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && chmod +x dist/server.js",
+    "postinstall": "chmod +x dist/server.js 2>/dev/null || true"
   },
   "keywords": [
     "mcp",
