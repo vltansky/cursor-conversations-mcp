@@ -4,23 +4,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   listConversations,
-  listConversationsSchema,
   getConversation,
-  getConversationSchema,
-  getConversationSummary,
-  getConversationSummarySchema,
   searchConversations,
-  searchConversationsSchema,
   getRecentConversations,
-  getRecentConversationsSchema,
-  getConversationsByProject,
-  getConversationsByProjectSchema,
-  type ListConversationsInput,
-  type GetConversationInput,
-  type GetConversationSummaryInput,
-  type SearchConversationsInput,
-  type GetRecentConversationsInput,
-  type GetConversationsByProjectInput
+  getConversationsByProject
 } from './tools/conversation-tools.js';
 import {
   getConversationAnalytics,
