@@ -18,6 +18,7 @@ import {
   exportConversationData
 } from './tools/extraction-tools.js';
 import { z } from 'zod';
+import { formatResponse } from './utils/formatter.js';
 
 const server = new McpServer({
   name: 'cursor-conversations-mcp',
@@ -38,7 +39,8 @@ server.tool(
     filePattern: z.string().optional(),
     relevantFiles: z.array(z.string()).optional(),
     includeEmpty: z.boolean().optional().default(false),
-    includeAiSummaries: z.boolean().optional().default(true)
+    includeAiSummaries: z.boolean().optional().default(true),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -59,7 +61,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -80,7 +82,8 @@ server.tool(
   {
     conversationId: z.string().min(1),
     includeMetadata: z.boolean().optional().default(false),
-    summaryOnly: z.boolean().optional().default(false)
+    summaryOnly: z.boolean().optional().default(false),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -96,7 +99,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -128,7 +131,8 @@ server.tool(
     // Search options
     searchType: z.enum(['all', 'project', 'files', 'code']).optional().default('all').describe('Focus search on specific content types'),
     maxResults: z.number().min(1).max(50).optional().default(10).describe('Maximum number of conversations to return'),
-    includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results')
+    includeCode: z.boolean().optional().default(true).describe('Include code blocks in search results'),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -157,7 +161,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -178,7 +182,8 @@ server.tool(
   {
     projectPath: z.string().optional(),
     limit: z.number().min(1).max(100).optional().default(20),
-    filePattern: z.string().optional()
+    filePattern: z.string().optional(),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -194,7 +199,7 @@ server.tool(
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(result, null, 2)
+            text: formatResponse(result, input.outputMode)
           }]
         };
       } else {
@@ -210,7 +215,7 @@ server.tool(
         return {
           content: [{
             type: 'text',
-            text: JSON.stringify(result, null, 2)
+            text: formatResponse(result, input.outputMode)
           }]
         };
       }
@@ -233,7 +238,8 @@ server.tool(
     scope: z.enum(['all', 'recent', 'project']).optional().default('all'),
     projectPath: z.string().optional(),
     recentDays: z.number().min(1).max(365).optional().default(30),
-    includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages'])
+    includeBreakdowns: z.array(z.enum(['files', 'languages', 'temporal', 'size'])).optional().default(['files', 'languages']),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -241,7 +247,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -264,7 +270,8 @@ server.tool(
     relationshipTypes: z.array(z.enum(['files', 'folders', 'languages', 'size', 'temporal'])).optional().default(['files']),
     maxResults: z.number().min(1).max(50).optional().default(10),
     minScore: z.number().min(0).max(1).optional().default(0.1),
-    includeScoreBreakdown: z.boolean().optional().default(false)
+    includeScoreBreakdown: z.boolean().optional().default(false),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
@@ -272,7 +279,7 @@ server.tool(
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -299,15 +306,24 @@ server.tool(
       minCodeLength: z.number().optional(),
       fileExtensions: z.array(z.string()).optional(),
       languages: z.array(z.string()).optional()
-    }).optional()
+    }).optional(),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
-      const result = await extractConversationElements(input);
+      const mappedInput = {
+        conversationIds: input.conversationIds,
+        elements: input.elements,
+        includeContext: input.includeContext,
+        groupBy: input.groupBy,
+        filters: input.filters
+      };
+
+      const result = await extractConversationElements(mappedInput);
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
@@ -335,15 +351,25 @@ server.tool(
       minSize: z.number().optional(),
       hasCodeBlocks: z.boolean().optional(),
       projectPath: z.string().optional()
-    }).optional()
+    }).optional(),
+    outputMode: z.enum(['compact', 'table', 'markdown', 'json', 'compact-json']).optional().default('markdown')
   },
   async (input) => {
     try {
-      const result = await exportConversationData(input);
+      const mappedInput = {
+        conversationIds: input.conversationIds,
+        format: input.format,
+        includeContent: input.includeContent,
+        includeRelationships: input.includeRelationships,
+        flattenStructure: input.flattenStructure,
+        filters: input.filters
+      };
+
+      const result = await exportConversationData(mappedInput);
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: formatResponse(result, input.outputMode)
         }]
       };
     } catch (error) {
