@@ -437,99 +437,94 @@ export class CursorDatabaseReader {
       return null;
     }
 
-    const format = isLegacyConversation(conversation) ? 'legacy' : 'modern';
-    const conversationSize = JSON.stringify(conversation).length;
-
+    const format = isModernConversation(conversation) ? 'modern' : 'legacy';
     let messageCount = 0;
     let hasCodeBlocks = false;
     let codeBlockCount = 0;
-    let relevantFiles: string[] = [];
-    let attachedFolders: string[] = [];
+    const relevantFiles = new Set<string>();
+    const attachedFolders = new Set<string>();
     let firstMessage: string | undefined;
     let lastMessage: string | undefined;
+    const conversationSize = JSON.stringify(conversation).length;
+    let title: string | undefined;
+    let aiGeneratedSummary: string | undefined;
 
-    if (isLegacyConversation(conversation)) {
-      messageCount = conversation.conversation.length;
-
-      // Extract data from messages
-      for (const message of conversation.conversation) {
-        if (message.suggestedCodeBlocks && message.suggestedCodeBlocks.length > 0) {
+    if (format === 'legacy') {
+      const legacyConvo = conversation as LegacyCursorConversation;
+      messageCount = legacyConvo.conversation.length;
+      legacyConvo.conversation.forEach((msg, index) => {
+        if (msg.suggestedCodeBlocks && msg.suggestedCodeBlocks.length > 0) {
           hasCodeBlocks = true;
-          codeBlockCount += message.suggestedCodeBlocks.length;
+          codeBlockCount += msg.suggestedCodeBlocks.length;
         }
-
-        if (message.relevantFiles) {
-          relevantFiles.push(...message.relevantFiles);
+        msg.relevantFiles?.forEach(file => relevantFiles.add(file));
+        msg.attachedFoldersNew?.forEach(folder => attachedFolders.add(folder));
+        if (index === 0) {
+          firstMessage = msg.text;
         }
+        lastMessage = msg.text;
+      });
+    } else {
+      const modernConvo = conversation as ModernCursorConversation;
+      messageCount = modernConvo.fullConversationHeadersOnly.length;
+      title = modernConvo.name;
+      aiGeneratedSummary = modernConvo.latestConversationSummary?.summary?.summary;
 
-        if (message.attachedFoldersNew) {
-          attachedFolders.push(...message.attachedFoldersNew);
-        }
-      }
+      // For modern conversations, we need to resolve bubbles to get details
+      // This can be slow, so we only do it if necessary based on options
+      const needsBubbleResolution = options?.includeFirstMessage || options?.includeLastMessage || options?.includeCodeBlockCount || options?.includeFileList;
 
-      // Get first and last messages if requested
-      if (options?.includeFirstMessage && conversation.conversation.length > 0) {
-        const first = conversation.conversation[0];
-        const maxLength = options.maxFirstMessageLength || 200;
-        firstMessage = first.text.length > maxLength
-          ? first.text.substring(0, maxLength) + '...'
-          : first.text;
-      }
-
-      if (options?.includeLastMessage && conversation.conversation.length > 0) {
-        const last = conversation.conversation[conversation.conversation.length - 1];
-        lastMessage = last.text;
-      }
-    } else if (isModernConversation(conversation)) {
-      messageCount = conversation.fullConversationHeadersOnly.length;
-
-      // For modern format, we'd need to resolve individual messages to get full data
-      // This is a simplified version that doesn't resolve all bubbles for performance
-      if (this.config.resolveBubblesAutomatically && options?.includeFirstMessage) {
-        const firstHeader = conversation.fullConversationHeadersOnly[0];
-        if (firstHeader) {
-          const firstBubble = await this.getBubbleMessage(composerId, firstHeader.bubbleId);
-          if (firstBubble) {
-            const maxLength = options.maxFirstMessageLength || 200;
-            firstMessage = firstBubble.text.length > maxLength
-              ? firstBubble.text.substring(0, maxLength) + '...'
-              : firstBubble.text;
-
-            if (firstBubble.relevantFiles) {
-              relevantFiles.push(...firstBubble.relevantFiles);
-            }
-
-            if (firstBubble.attachedFoldersNew) {
-              attachedFolders.push(...firstBubble.attachedFoldersNew);
-            }
-
-            if (firstBubble.suggestedCodeBlocks && firstBubble.suggestedCodeBlocks.length > 0) {
+      if (needsBubbleResolution && this.config.resolveBubblesAutomatically) {
+        for (const header of modernConvo.fullConversationHeadersOnly) {
+          const bubble = await this.getBubbleMessage(composerId, header.bubbleId);
+          if (bubble) {
+            if (bubble.suggestedCodeBlocks && bubble.suggestedCodeBlocks.length > 0) {
               hasCodeBlocks = true;
-              codeBlockCount += firstBubble.suggestedCodeBlocks.length;
+              codeBlockCount += bubble.suggestedCodeBlocks.length;
             }
+            bubble.relevantFiles?.forEach(file => relevantFiles.add(file));
+            bubble.attachedFoldersNew?.forEach(folder => attachedFolders.add(folder));
+
+            if (!firstMessage) {
+              firstMessage = bubble.text;
+            }
+            lastMessage = bubble.text;
           }
         }
       }
     }
 
-    // Remove duplicates
-    relevantFiles = Array.from(new Set(relevantFiles));
-    attachedFolders = Array.from(new Set(attachedFolders));
+    // Truncate messages if requested
+    if (options?.includeFirstMessage && firstMessage) {
+      firstMessage = firstMessage.substring(0, options.maxFirstMessageLength || 150);
+    } else {
+      firstMessage = undefined;
+    }
 
-    return {
+    if (options?.includeLastMessage && lastMessage) {
+      lastMessage = lastMessage.substring(0, options.maxLastMessageLength || 150);
+    } else {
+      lastMessage = undefined;
+    }
+
+    const summary: ConversationSummary = {
       composerId,
       format,
       messageCount,
       hasCodeBlocks,
-      codeBlockCount,
-      relevantFiles,
-      attachedFolders,
+      codeBlockCount: options?.includeCodeBlockCount ? codeBlockCount : 0,
+      relevantFiles: options?.includeFileList ? Array.from(relevantFiles) : [],
+      attachedFolders: options?.includeAttachedFolders ? Array.from(attachedFolders) : [],
       firstMessage,
       lastMessage,
       storedSummary: options?.includeStoredSummary ? conversation.text : undefined,
       storedRichText: options?.includeStoredSummary ? conversation.richText : undefined,
+      title: options?.includeTitle ? title : undefined,
+      aiGeneratedSummary: options?.includeAIGeneratedSummary ? aiGeneratedSummary : undefined,
       conversationSize
     };
+
+    return summary;
   }
 
   /**

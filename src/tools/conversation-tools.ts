@@ -14,7 +14,8 @@ export const listConversationsSchema = z.object({
   includeEmpty: z.boolean().optional(),
   projectPath: z.string().optional(),
   filePattern: z.string().optional(),
-  relevantFiles: z.array(z.string()).optional()
+  relevantFiles: z.array(z.string()).optional(),
+  includeAiSummaries: z.boolean().optional().default(true)
 });
 
 export type ListConversationsInput = z.infer<typeof listConversationsSchema>;
@@ -29,6 +30,8 @@ export interface ListConversationsOutput {
     relevantFiles: string[];
     attachedFolders: string[];
     firstMessage?: string;
+    title?: string;
+    aiGeneratedSummary?: string;
     size: number;
   }>;
   totalFound: number;
@@ -41,6 +44,7 @@ export interface ListConversationsOutput {
     projectPath?: string;
     filePattern?: string;
     relevantFiles?: string[];
+    includeAiSummaries?: boolean;
   };
 }
 
@@ -74,7 +78,9 @@ export async function listConversations(input: ListConversationsInput): Promise<
       try {
         const summary = await reader.getConversationSummary(composerId, {
           includeFirstMessage: true,
-          maxFirstMessageLength: 150
+          maxFirstMessageLength: 150,
+          includeTitle: true,
+          includeAIGeneratedSummary: validatedInput.includeAiSummaries
         });
 
         if (summary) {
@@ -86,6 +92,8 @@ export async function listConversations(input: ListConversationsInput): Promise<
             relevantFiles: summary.relevantFiles || [],
             attachedFolders: summary.attachedFolders || [],
             firstMessage: summary.firstMessage,
+            title: summary.title,
+            aiGeneratedSummary: summary.aiGeneratedSummary,
             size: summary.conversationSize
           });
         }
@@ -105,7 +113,8 @@ export async function listConversations(input: ListConversationsInput): Promise<
         keywords: validatedInput.keywords,
         projectPath: validatedInput.projectPath,
         filePattern: validatedInput.filePattern,
-        relevantFiles: validatedInput.relevantFiles
+        relevantFiles: validatedInput.relevantFiles,
+        includeAiSummaries: validatedInput.includeAiSummaries
       }
     };
 
@@ -121,7 +130,8 @@ export const getConversationSchema = z.object({
   includeCodeBlocks: z.boolean().optional().default(true),
   includeFileReferences: z.boolean().optional().default(true),
   includeMetadata: z.boolean().optional().default(false),
-  resolveBubbles: z.boolean().optional().default(true)
+  resolveBubbles: z.boolean().optional().default(true),
+  summaryOnly: z.boolean().optional().default(false)
 });
 
 export type GetConversationInput = z.infer<typeof getConversationSchema>;
@@ -132,6 +142,8 @@ export interface GetConversationOutput {
     composerId: string;
     format: 'legacy' | 'modern';
     messageCount: number;
+    title?: string;
+    aiGeneratedSummary?: string;
     messages?: Array<{
       type: number;
       text: string;
@@ -175,12 +187,52 @@ export async function getConversation(input: GetConversationInput): Promise<GetC
     // Connect to database
     await reader.connect();
 
+    // If summaryOnly is requested, return enhanced summary without full content
+    if (validatedInput.summaryOnly) {
+      const summary = await reader.getConversationSummary(validatedInput.conversationId, {
+        includeTitle: true,
+        includeAIGeneratedSummary: true,
+        includeFirstMessage: true,
+        includeLastMessage: true,
+        maxFirstMessageLength: 200,
+        maxLastMessageLength: 200
+      });
+
+      if (!summary) {
+        return { conversation: null };
+      }
+
+      return {
+        conversation: {
+          composerId: summary.composerId,
+          format: summary.format,
+          messageCount: summary.messageCount,
+          title: summary.title,
+          aiGeneratedSummary: summary.aiGeneratedSummary,
+          relevantFiles: validatedInput.includeFileReferences ? summary.relevantFiles : undefined,
+          attachedFolders: validatedInput.includeFileReferences ? summary.attachedFolders : undefined,
+          metadata: validatedInput.includeMetadata ? {
+            hasLoaded: true,
+            storedSummary: summary.storedSummary,
+            storedRichText: summary.storedRichText,
+            size: summary.conversationSize
+          } : undefined
+        }
+      };
+    }
+
     // Get conversation
     const conversation = await reader.getConversationById(validatedInput.conversationId);
 
     if (!conversation) {
       return { conversation: null };
     }
+
+    // Get conversation summary to extract title and AI summary
+    const summary = await reader.getConversationSummary(validatedInput.conversationId, {
+      includeTitle: true,
+      includeAIGeneratedSummary: true
+    });
 
     // Determine format
     const format = conversation.hasOwnProperty('_v') ? 'modern' : 'legacy';
@@ -223,6 +275,8 @@ export async function getConversation(input: GetConversationInput): Promise<GetC
           composerId: legacyConv.composerId,
           format: 'legacy',
           messageCount: messages.length,
+          title: summary?.title,
+          aiGeneratedSummary: summary?.aiGeneratedSummary,
           messages: processedMessages,
           codeBlocks: validatedInput.includeCodeBlocks ? allCodeBlocks : undefined,
           relevantFiles: validatedInput.includeFileReferences ? allRelevantFiles : undefined,
@@ -264,6 +318,8 @@ export async function getConversation(input: GetConversationInput): Promise<GetC
             composerId: modernConv.composerId,
             format: 'modern',
             messageCount: headers.length,
+            title: summary?.title,
+            aiGeneratedSummary: summary?.aiGeneratedSummary,
             messages: resolvedMessages,
             metadata: validatedInput.includeMetadata ? {
               hasLoaded: true,
@@ -279,6 +335,8 @@ export async function getConversation(input: GetConversationInput): Promise<GetC
             composerId: modernConv.composerId,
             format: 'modern',
             messageCount: headers.length,
+            title: summary?.title,
+            aiGeneratedSummary: summary?.aiGeneratedSummary,
             metadata: validatedInput.includeMetadata ? {
               hasLoaded: true,
               storedSummary: modernConv.storedSummary,
@@ -413,8 +471,7 @@ export type SearchConversationsInput = z.infer<typeof searchConversationsSchema>
 
 // Output type for search_conversations tool
 export interface SearchConversationsOutput {
-  results?: ConversationSearchResult[];
-  conversations?: Array<{
+  conversations: Array<{
     composerId: string;
     format: 'legacy' | 'modern';
     messageCount: number;
@@ -422,6 +479,8 @@ export interface SearchConversationsOutput {
     relevantFiles: string[];
     attachedFolders: string[];
     firstMessage?: string;
+    title?: string;
+    aiGeneratedSummary?: string;
     size: number;
     relevanceScore?: number;
     matchDetails?: {
@@ -618,9 +677,39 @@ export async function searchConversations(input: SearchConversationsInput): Prom
         format: validatedInput.format
       });
 
+      // Convert search results to conversation summaries for consistency
+      const conversations = [];
+      for (const result of searchResults) {
+        try {
+          const summary = await reader.getConversationSummary(result.composerId, {
+            includeFirstMessage: true,
+            maxFirstMessageLength: 150,
+            includeTitle: true,
+            includeAIGeneratedSummary: true
+          });
+
+          if (summary) {
+            conversations.push({
+              composerId: summary.composerId,
+              format: summary.format,
+              messageCount: summary.messageCount,
+              hasCodeBlocks: summary.hasCodeBlocks,
+              relevantFiles: summary.relevantFiles || [],
+              attachedFolders: summary.attachedFolders || [],
+              firstMessage: summary.firstMessage,
+              title: summary.title,
+              aiGeneratedSummary: summary.aiGeneratedSummary,
+              size: summary.conversationSize
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to get summary for conversation ${result.composerId}:`, error);
+        }
+      }
+
       return {
-        results: searchResults,
-        totalResults: searchResults.length,
+        conversations,
+        totalResults: conversations.length,
         query: displayQuery,
         searchOptions: {
           includeCode: validatedInput.includeCode,

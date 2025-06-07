@@ -27,7 +27,7 @@ const server = new McpServer({
 // Simplified: List conversations with essential filters only
 server.tool(
   'list_conversations',
-  'List Cursor conversations with basic filtering. Returns conversation summaries ordered by most recent first.',
+  'Lists Cursor conversations with summaries, titles, and metadata ordered by recency. Includes AI-generated summaries by default to help identify relevant discussions efficiently. Use this to browse and discover conversations before retrieving full content with get_conversation.',
   {
     limit: z.number().min(1).max(100).optional().default(10),
     minLength: z.number().min(0).optional().default(100),
@@ -37,7 +37,8 @@ server.tool(
     projectPath: z.string().optional(),
     filePattern: z.string().optional(),
     relevantFiles: z.array(z.string()).optional(),
-    includeEmpty: z.boolean().optional().default(false)
+    includeEmpty: z.boolean().optional().default(false),
+    includeAiSummaries: z.boolean().optional().default(true)
   },
   async (input) => {
     try {
@@ -50,7 +51,8 @@ server.tool(
         projectPath: input.projectPath,
         filePattern: input.filePattern,
         relevantFiles: input.relevantFiles,
-        includeEmpty: input.includeEmpty
+        includeEmpty: input.includeEmpty,
+        includeAiSummaries: input.includeAiSummaries
       };
 
       const result = await listConversations(mappedInput);
@@ -74,10 +76,11 @@ server.tool(
 // Simplified: Get conversation with sensible defaults
 server.tool(
   'get_conversation',
-  'Retrieve the full content of a specific Cursor conversation by ID, including messages, code blocks, and file references.',
+  'Retrieves the complete content of a specific Cursor conversation including all messages, code blocks, file references, title, and AI summary. This provides full conversation details and should be used when you need to analyze specific conversations identified through list_conversations or search_conversations. Use summaryOnly=true to get enhanced summary data without full message content when appropriate.',
   {
     conversationId: z.string().min(1),
-    includeMetadata: z.boolean().optional().default(false)
+    includeMetadata: z.boolean().optional().default(false),
+    summaryOnly: z.boolean().optional().default(false)
   },
   async (input) => {
     try {
@@ -110,8 +113,8 @@ server.tool(
 // Enhanced: Search conversations with multi-keyword and LIKE pattern support
 server.tool(
   'search_conversations',
-  'Search through Cursor conversation content using multiple powerful methods. Choose the best approach for your needs:\n\n1. SIMPLE QUERY: Use "query" for basic text search (e.g., "react hooks", "error handling")\n\n2. MULTI-KEYWORD SEARCH: Use "keywords" array with "keywordOperator" for precise matching:\n   - OR search: {"keywords": ["react", "vue", "angular"], "keywordOperator": "OR"} - finds conversations mentioning ANY of these\n   - AND search: {"keywords": ["typescript", "interface", "generic"], "keywordOperator": "AND"} - finds conversations mentioning ALL of these\n\n3. LIKE PATTERNS: Use "likePattern" for advanced pattern matching with SQL wildcards:\n   - Function calls: "%useState(%" or "%useEffect(%"\n   - File extensions: "%.tsx%" or "%.py%"\n   - Code patterns: "%interface %{%" or "%class %extends%"\n   - Wildcards: % = any characters, _ = single character\n\n4. COMBINED SEARCH: Mix methods for complex queries\n\nUse specific terms that would literally appear in conversations. LIKE patterns are fastest for code pattern searches.',
-    {
+  'Searches through Cursor conversation content using multiple powerful methods to find relevant discussions. Supports simple text queries, multi-keyword searches with AND/OR operators, and SQL LIKE patterns for advanced matching. Returns conversation summaries and metadata - use get_conversation for full content of specific matches.\n\nSearch methods:\n1. Simple query: Basic text search (e.g., "react hooks")\n2. Multi-keyword: Use keywords array with keywordOperator for precise matching\n3. LIKE patterns: Advanced pattern matching with SQL wildcards (% = any chars, _ = single char)\n\nExamples: likePattern="%useState(%" for function calls, keywords=["typescript","interface"] with AND operator for specific combinations.',
+  {
     // Simple query (backward compatible)
     query: z.string().optional().describe('Basic text search - use for simple searches like "react hooks" or "error handling"'),
 
@@ -171,7 +174,7 @@ server.tool(
 // Consolidated: Get conversations by project (replaces get_recent_conversations and get_conversations_by_project)
 server.tool(
   'get_project_conversations',
-  'Get conversations for a specific project path, or get recent conversations if no project specified.',
+  'Retrieves conversations filtered by project path or returns recent conversations when no project is specified. Useful for finding discussions related to specific codebases or getting an overview of recent activity. Returns conversation summaries with file and folder context.',
   {
     projectPath: z.string().optional(),
     limit: z.number().min(1).max(100).optional().default(20),

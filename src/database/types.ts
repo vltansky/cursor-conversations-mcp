@@ -32,6 +32,12 @@ export interface ModernCursorConversation {
   hasLoaded: boolean;
   text: string;                        // May contain conversation summary (often empty)
   fullConversationHeadersOnly: ConversationHeader[];
+  name?: string;                       // Conversation title (Modern format only)
+  latestConversationSummary?: {        // AI-generated summary structure
+    summary: {
+      summary: string;                 // The actual AI-generated summary text
+    };
+  };
 }
 
 // Union type for both conversation formats
@@ -85,6 +91,8 @@ export interface ConversationSummary {
   lastMessage?: string;                // Last message in conversation
   storedSummary?: string;              // From text field if available
   storedRichText?: string;             // From richText field if available
+  title?: string;                      // From 'name' field (Modern format only)
+  aiGeneratedSummary?: string;         // From 'latestConversationSummary.summary.summary'
   conversationSize: number;            // Size in bytes
 }
 
@@ -95,6 +103,14 @@ export interface ConversationSearchResult {
   matches: SearchMatch[];
   relevantFiles: string[];
   attachedFolders: string[];
+  maxLastMessageLength?: number;             // Max length for last message
+  includeStoredSummary?: boolean;            // Include text/richText fields
+  includeFileList?: boolean;                 // Include relevant files
+  includeCodeBlockCount?: boolean;           // Count code blocks
+  includeAttachedFolders?: boolean;          // Include attached folders
+  includeMetadata?: boolean;                 // Include metadata information
+  includeTitle?: boolean;                    // Include conversation title (Modern format)
+  includeAIGeneratedSummary?: boolean;       // Include AI-generated summary (Modern format)
 }
 
 export interface SearchMatch {
@@ -139,6 +155,8 @@ export interface SummaryOptions {
   includeCodeBlockCount?: boolean;           // Count code blocks
   includeAttachedFolders?: boolean;          // Include attached folders
   includeMetadata?: boolean;                 // Include metadata information
+  includeTitle?: boolean;                    // Include conversation title (Modern format)
+  includeAIGeneratedSummary?: boolean;       // Include AI-generated summary (Modern format)
 }
 
 // Database configuration

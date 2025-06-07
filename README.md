@@ -44,8 +44,9 @@ Add to your `.cursor/mcp.json`:
 ### 2. Start Using
 ```
 "Analyze my React conversations and create component guidelines"
-"Look at my debugging sessions and create troubleshooting rules"
-"Generate TypeScript coding standards based on my actual usage patterns"
+"Find debugging patterns in my conversation history"
+"Generate TypeScript coding standards from my actual usage"
+"What are the main themes in my recent coding discussions?"
 ```
 
 ## Available Tools
@@ -68,36 +69,35 @@ Add to your `.cursor/mcp.json`:
 
 ### Generate Coding Rules
 ```
-"Search for TypeScript interface discussions and create naming conventions"
-"Find all conversations about error handling patterns and create guidelines"
-"Use keywords=['typescript', 'interface'] with AND operator to find interface discussions"
+"Create TypeScript interface naming conventions from my conversations"
+"Extract error handling patterns and create guidelines"
+"Find all my discussions about testing and create best practices"
 ```
 
 ### Extract Best Practices
 ```
-"Search with likePattern='%useState(%' to find all React hook usage examples"
-"Use keywords=['react', 'state', 'management'] to find state management patterns"
-"Search for '%class %extends%' pattern to analyze inheritance usage"
+"Show me how I typically use React hooks in my projects"
+"Find patterns in my state management discussions"
+"Analyze my class inheritance usage and create guidelines"
 ```
 
-### Advanced Search Examples
+### Advanced Analysis
 ```
-"Find conversations about specific functions: likePattern='%useEffect(%'"
-"Search for file-specific discussions: likePattern='%.tsx%' or likePattern='%.py%'"
-"Multi-keyword AND search: keywords=['typescript', 'generic', 'interface']"
-"Multi-keyword OR search: keywords=['react', 'vue', 'angular'] to compare frameworks"
+"Find conversations where I discussed specific functions or patterns"
+"Search for file-specific discussions across my projects"
+"Compare how I've approached similar problems over time"
 ```
 
 ### Create Project Documentation
 ```
-"Generate API documentation based on conversations about the user service"
-"Export conversation data about the auth module for technical documentation"
+"Generate API documentation from my service discussions"
+"Create technical docs from my auth module conversations"
 ```
 
 ### Learn from Past Solutions
 ```
-"Analyze my debugging conversations and create a troubleshooting guide"
-"Find conversations related to performance optimization and extract insights"
+"Find similar debugging sessions and extract solutions"
+"Analyze my performance optimization discussions"
 ```
 
 ### Data Analysis & Insights
@@ -133,12 +133,14 @@ The npx configuration above handles installation automatically.
 
 **`list_conversations`**
 - `limit` (default: 20) - Number of conversations to return
+- `includeAiSummaries` (default: true) - Include AI-generated summaries for efficient browsing
 - `projectPath` - Filter by project path
 - `hasCodeBlocks` - Filter conversations with/without code
 - `keywords` - Search by keywords
 
 **`get_conversation`**
 - `conversationId` (required) - Conversation to retrieve
+- `summaryOnly` (default: false) - Get enhanced summary without full content to save context
 - `includeMetadata` (default: false) - Include additional metadata
 
 **`search_conversations`** - Enhanced search with multiple methods
@@ -148,18 +150,6 @@ The npx configuration above handles installation automatically.
 - `searchType` (default: 'all') - 'all', 'project', 'files', 'code'
 - `maxResults` (default: 10) - Maximum results
 - `includeCode` (default: true) - Include code blocks
-
-Examples:
-```json
-// Simple search
-{"query": "react hooks"}
-
-// Multi-keyword AND
-{"keywords": ["react", "typescript"], "keywordOperator": "AND"}
-
-// LIKE pattern for function calls
-{"likePattern": "%useState(%useEffect%"}
-```
 
 **`get_project_conversations`**
 - `projectPath` - Project to filter by (optional - returns recent if omitted)
