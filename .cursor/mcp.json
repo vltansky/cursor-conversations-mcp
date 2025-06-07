@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+      "cursor-conversations-mcp": {
+          "command": "node",
+          "args": [
+              "/Users/vladta/Projects/cursor-conversations-mcp/dist/server.js"
+          ]
+      },
+        "taskmaster-ai": {
+          "command": "npx",
+          "args": ["-y", "--package=task-master-ai", "task-master-ai"]
+        }
+    }
+}
